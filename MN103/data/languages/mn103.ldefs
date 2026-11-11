@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<language_definitions>
+  <language processor="MN103"
+            endian="little"
+            size="32"
+            variant="AM33-2"
+            version="1.0"
+            slafile="mn103.sla"
+            processorspec="mn103.pspec"
+            id="MN103:LE:32:AM33-2">
+    <description>Panasonic MN103 / AM33 / AM33-2 (MN10300 family), decoding generated from binutils</description>
+    <compiler name="default" spec="mn103.cspec" id="default"/>
+    <external_name tool="gnu" name="am33-2"/>
+    <external_name tool="gnu" name="mn10300"/>
+  </language>
+</language_definitions>

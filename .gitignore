@@ -1,0 +1,8 @@
+# never commit firmware or build outputs
+*.BIN
+*.bin
+*.bdelta
+*.zip
+*.sla
+unpacked/
+__pycache__/
