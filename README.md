@@ -121,9 +121,13 @@ The scripts for both checks are in `validation/`.
 
 ## AI disclosure
 
-Most of this module, including the generator, scripts, tests and this README, was written with an AI coding
-assistant (Anthropic's Claude), with me directing the work, reviewing it and testing it on real firmware. The test
-results above are what actually came out of the runs. If something looks wrong, please open an issue.
+To get this into people's hands, much of the documentation, including this README, was written by an AI assistant
+(Anthropic's Claude). I am working to replace that writing with my own, as I believe that will make the repositories
+more entertaining and readable.
+
+The module, generator, scripts and tests were written with help from the same assistant, with me directing it,
+reviewing the results and testing on real firmware. The test results above are what actually came out of the runs. If
+something looks wrong, please open an issue.
 
 ## Licence
 
