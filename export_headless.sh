@@ -1,5 +1,5 @@
 #!/bin/sh
-# Headless Ghidra export of a function list, the same steps the maintainer runs in the GUI for a csrc batch:
+# Headless Ghidra export of a function list, the same steps as in the GUI for a csrc batch:
 #   MN103RecoverSwitches (repeated until no new tables), MN103FixCallFrames, MN103InferParams -keep, MN103Decompile.
 # Analysis only: reads the Ghidra project, writes one .ghidra.c file. Nothing here writes firmware.
 #
