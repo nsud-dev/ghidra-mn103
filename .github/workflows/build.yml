@@ -8,12 +8,12 @@ jobs:
       fail-fast: false
       matrix:
         ghidra:
-          - { version: "11.4.2", url: "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.2_build/ghidra_11.4.2_PUBLIC_20250826.zip" }
-          - { version: "latest", url: "" }   # newest Ghidra release, looked up at run time
+          - { version: "11.4.2", java: "21", url: "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.2_build/ghidra_11.4.2_PUBLIC_20250826.zip" }
+          - { version: "latest", java: "25", url: "" }   # newest Ghidra release (12.2 needs JDK 25), looked up at run time
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: "21" }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "${{ matrix.ghidra.java }}" }
       - name: Get Ghidra ${{ matrix.ghidra.version }}
         run: |
           URL="${{ matrix.ghidra.url }}"
