@@ -1,0 +1,52 @@
+# Builds the module with a stock Ghidra and runs the emulator cases, on every push and pull request.
+name: build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ghidra:
+          - { version: "11.4.2", url: "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.2_build/ghidra_11.4.2_PUBLIC_20250826.zip" }
+          - { version: "latest", url: "" }   # newest Ghidra release, looked up at run time
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - name: Get Ghidra ${{ matrix.ghidra.version }}
+        run: |
+          URL="${{ matrix.ghidra.url }}"
+          if [ -z "$URL" ]; then
+            URL=$(curl -sSL -H "Authorization: Bearer ${{ github.token }}" \
+              https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/latest \
+              | python3 -c 'import json,sys; print(next(a["browser_download_url"] for a in json.load(sys.stdin)["assets"] if a["name"].endswith(".zip")))')
+          fi
+          echo "Ghidra: $URL"
+          curl -sSL -o g.zip "$URL"
+          unzip -q g.zip -d "$RUNNER_TEMP" && rm g.zip
+          echo "GHIDRA=$(ls -d "$RUNNER_TEMP"/ghidra_*_PUBLIC)" >> "$GITHUB_ENV"
+      - name: Install the module and compile the SLEIGH spec
+        run: |
+          cp -r MN103 "$GHIDRA/Ghidra/Processors/"
+          L="$GHIDRA/Ghidra/Processors/MN103/data/languages"
+          "$GHIDRA/support/sleigh" "$L/mn103.slaspec" "$L/mn103.sla"
+          test -s "$L/mn103.sla"
+      - name: Compile every script
+        run: |
+          CP=$(find "$GHIDRA/Ghidra" -path '*/lib/*.jar' | tr '\n' ':')
+          javac -nowarn -proc:none -d "$RUNNER_TEMP/classes" -cp "$CP" $(find . -name '*.java')
+      - name: Emulator cases
+        run: |
+          head -c 4096 /dev/zero > "$RUNNER_TEMP/blank.bin"
+          mkdir -p "$RUNNER_TEMP/proj"
+          "$GHIDRA/support/analyzeHeadless" "$RUNNER_TEMP/proj" ci -import "$RUNNER_TEMP/blank.bin" \
+            -processor MN103:LE:32:AM33-2 -loader BinaryLoader -loader-baseAddr 0x60021020 -noanalysis \
+            -scriptPath validation -postScript MN103CaseTests.java validation/emu_cases.txt "$RUNNER_TEMP/cases.out" \
+            -deleteProject 2>&1 | tail -30
+          cat "$RUNNER_TEMP/cases.out"
+          grep -q ' 0 fail$' "$RUNNER_TEMP/cases.out"
+      - name: Python and shell syntax
+        run: |
+          python3 -m py_compile $(find . -name '*.py')
+          for f in $(find . -name '*.sh'); do sh -n "$f"; done

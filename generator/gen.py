@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from GNU binutils 2.42 (opcodes/m10300-opc.c, Copyright (C) 1996-2024 Free Software Foundation, Inc.)
+# and the GDB mn10300 simulator. See ../COPYING and ../LICENSE.md.
 """Generate a Ghidra SLEIGH spec for the Panasonic MN103 / AM33 / AM33-2 from the
 binutils opcode table (opcodes/m10300-opc.c, dumped to table.json by dump.c).
 
@@ -16,7 +19,7 @@ import json, re, sys, collections, os
 TABLE, OPC_C, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 T = json.load(open(TABLE))
 OPERANDS = T['operands']
-src = open(OPC_C).read
+src = open(OPC_C).read()
 OPNAMES = ['UNUSED'] + [m.group(1) for m in re.finditer(r'#define\s+(\w+)\s*\(\s*(\w+)\s*\+\s*1\s*\)', src)]
 
 F_DREG, F_AREG, F_SP, F_PSW, F_MDR, F_SIGNED, F_PROMOTE, F_PAREN = 1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80
@@ -25,7 +28,7 @@ F_USP, F_SSP, F_MSP, F_PC, F_EPSW, F_RREG, F_XRREG, F_PLUS, F_24 = 0x8000, 0x100
 F_FS, F_FD, F_FPCR = 0x1000000, 0x2000000, 0x4000000
 
 FMT = dict(S0=1, S1=2, S2=3, S4=4, S6=5, D0=6, D1=7, D2=8, D4=9, D5=10, D6=11, D7=12, D8=13, D9=14, D10=15, D3=16)
-FMTN = {v: k for k, v in FMT.items}
+FMTN = {v: k for k, v in FMT.items()}
 AM30, AM33, AM33_2 = 300, 330, 332
 
 def mysize(fmt):
@@ -61,16 +64,16 @@ def consume(b0, b1=0):
 
 # ---------------------------------------------------------------- symbolic bit vectors
 # A value is a list of 32 entries, index = bit number; entry None (zero) or (byte, bit).
-def sv_zero:
+def sv_zero():
     return [None] * 32
 def sv_getb(start, n):
-    v = sv_zero
+    v = sv_zero()
     for k in range(n):
         for b in range(8):
             v[(n - 1 - k) * 8 + b] = (start + k, b)
     return v
 def sv_getl(start, n):
-    v = sv_zero
+    v = sv_zero()
     for k in range(n):
         for b in range(8):
             v[k * 8 + b] = (start + k, b)
@@ -89,14 +92,14 @@ def sv_shr(v, n):
     return [v[i + n] if 0 <= i + n < 32 else None for i in range(32)]
 
 def reconstruct(op, size):
-    """Mirror of disassemble: returns (insn, extension, extra_shift)."""
+    """Mirror of disassemble(): returns (insn, extension, extra_shift)."""
     name, opcode, mask, nomatch, fmt, mach, ops = op
     f = FMTN[fmt]
     if size == 1: insn = sv_getb(0, 1)
     elif size == 2: insn = sv_getb(0, 2)
     elif size == 3: insn = sv_or(sv_shl(sv_getb(0, 2), 8), sv_getb(2, 1))
     else: insn = sv_getb(0, 4)
-    ext = sv_zero
+    ext = sv_zero()
     if f in ('D1', 'S1'): xs = 8
     elif f in ('D2', 'D4', 'S2', 'S4', 'S6', 'D5'): xs = 16
     elif f in ('D7', 'D8', 'D9'): xs = 8
@@ -206,7 +209,7 @@ def cube_merge(cs):
         changed = False
         bym = collections.defaultdict(set)
         for c in cs: bym[c[0]].add(c[1])
-        for mk, vals in bym.items:
+        for mk, vals in bym.items():
             for v in list(vals):
                 if v not in vals: continue
                 for bit in range(32):
@@ -346,7 +349,7 @@ def imm_operand(bits, signed, kind):
     else:
         exp = 'export *[const]:4 v;'
     acts = ['v = %s + 0;' % e]
-    uses2 = {k: list(dict.fromkeys(v)) for k, v in uses.items}
+    uses2 = {k: list(dict.fromkeys(v)) for k, v in uses.items()}
     txt = '%s: v is %s [ %s ] { %s }' % (name, tok_prefix(maxbyte, uses2), ' '.join(acts), exp)
     return add_sub(name, txt)
 
@@ -420,7 +423,7 @@ def build_operands(op, size):
             bits, signed = operand_bits(oi, insn, ext, xs)
             kind = 'rel' if flags & F_PCREL else 'abs' if flags & F_MEMADDR else 'imm'
             sub = imm_operand(bits, signed, kind)
-            o = Op(kind.upper, sub, signed); o.nbits = len(bits); disp.append(sub); pattern_syms.append(sub)
+            o = Op(kind.upper(), sub, signed); o.nbits = len(bits); disp.append(sub); pattern_syms.append(sub)
         if stack is not None: stack.append(o)
         else: logical.append(o)
     return disp, logical, pattern_syms
@@ -435,7 +438,7 @@ FCOND = {
     'uo': 'fccU', 'lg': '(fccL || fccG)', 'leg': '(fccL || fccE || fccG)', 'ug': '(fccU || fccG)', 'uge': '(fccU || fccG || fccE)',
     'ul': '(fccU || fccL)', 'ule': '(fccU || fccL || fccE)', 'ue': '(fccU || fccE)',
 }
-PSEUDO = set
+PSEUDO = set()
 
 class Unsupported(Exception):
     pass
@@ -503,20 +506,20 @@ def sem_alu(name, ops):
     """Two- and three-operand integer ALU ops (sim genericAdd/Sub/Cmp etc.)."""
     if len(ops) == 3:
         s1, s2, d = rd(ops[0]), rd(ops[1]), ops[2]
-        if name in ('add'):
+        if name in ('add',):
             return 'local a:4 = %s; local b:4 = %s; local r:4 = a + b; C = carry(a, b); V = scarry(a, b); %s Z = (r == 0); N = (r s< 0);' % (s1, s2, wr(d, 'r'))
         if name == 'addc':
-            return 'local a:4 = %s; local b:4 = %s; local r:4 = a + b + zext(C); C = carry(a, b) || carry(a + b, zext(C)); V = scarry(a, b); %s Z = Z && (r == 0); N = (r s< 0);' % (s1, s2, wr(d, 'r'))
+            return 'local a:4 = %s; local b:4 = %s; local r:4 = a + b + zext(C); C = carry(a, b) || carry(a + b, zext(C)); V = scarry(a, b); %s Z = (r == 0); N = (r s< 0);' % (s1, s2, wr(d, 'r'))
         if name == 'sub':   # Rd = Rn - Rm
             return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a; C = b < a; V = sborrow(b, a); %s Z = (r == 0); N = (r s< 0);' % (s1, s2, wr(d, 'r'))
         if name == 'subc':
-            return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a - zext(C); C = (b < a) || ((b - a) < zext(C)); V = sborrow(b, a); %s Z = Z && (r == 0); N = (r s< 0);' % (s1, s2, wr(d, 'r'))
+            return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a - zext(C); C = (b < a) || ((b - a) < zext(C)); V = sborrow(b, a); %s Z = (r == 0); N = (r s< 0);' % (s1, s2, wr(d, 'r'))
         if name in ('and', 'or', 'xor'):
             opx = {'and': '&', 'or': '|', 'xor': '^'}[name]
             return 'local r:4 = %s %s %s; %s %s' % (s1, opx, s2, wr(d, 'r'), flags_logic('r'))
         if name in ('asl', 'asr', 'lsr'):   # Rd = Rn shift Rm
             opx = {'asl': '<<', 'asr': 's>>', 'lsr': '>>'}[name]
-            cpart = '' if name == 'asl' else ' C = (sh != 0) && (((b >> (sh - 1)) & 1) != 0);'
+            cpart = '' if name == 'asl' else ' C = (b & 1) != 0;'   # lsb before the shift (MN1030 manual, GDB sim)
             return 'local sh:4 = %s & 31; local b:4 = %s; local r:4 = b %s sh;%s %s Z = (r == 0); N = (r s< 0);' % (s1, s2, opx, cpart, wr(d, 'r'))
         raise Unsupported(name)
     s, d = ops
@@ -525,11 +528,11 @@ def sem_alu(name, ops):
         if d.kind == 'SP': return 'sp = sp + %s;' % S
         return 'local a:4 = %s; local b:4 = %s; local r:4 = a + b; C = carry(a, b); V = scarry(a, b); %s Z = (r == 0); N = (r s< 0);' % (S, D, wr(d, 'r'))
     if name == 'addc':
-        return 'local a:4 = %s; local b:4 = %s; local r:4 = a + b + zext(C); C = carry(a, b) || carry(a + b, zext(C)); V = scarry(a, b); %s Z = Z && (r == 0); N = (r s< 0);' % (S, D, wr(d, 'r'))
+        return 'local a:4 = %s; local b:4 = %s; local r:4 = a + b + zext(C); C = carry(a, b) || carry(a + b, zext(C)); V = scarry(a, b); %s Z = (r == 0); N = (r s< 0);' % (S, D, wr(d, 'r'))
     if name == 'sub':
         return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a; C = b < a; V = sborrow(b, a); %s Z = (r == 0); N = (r s< 0);' % (S, D, wr(d, 'r'))
     if name == 'subc':
-        return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a - zext(C); C = (b < a) || ((b - a) < zext(C)); V = sborrow(b, a); %s Z = Z && (r == 0); N = (r s< 0);' % (S, D, wr(d, 'r'))
+        return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a - zext(C); C = (b < a) || ((b - a) < zext(C)); V = sborrow(b, a); %s Z = (r == 0); N = (r s< 0);' % (S, D, wr(d, 'r'))
     if name == 'cmp':
         return 'local a:4 = %s; local b:4 = %s; local r:4 = b - a; C = b < a; V = sborrow(b, a); Z = (r == 0); N = (r s< 0);' % (S, D)
     if name in ('and', 'or', 'xor'):
@@ -539,7 +542,7 @@ def sem_alu(name, ops):
         return 'local r:4 = %s %s %s; %s %s' % (D, opx, S, wr(d, 'r'), flags_logic('r'))
     if name in ('asl', 'asr', 'lsr'):
         opx = {'asl': '<<', 'asr': 's>>', 'lsr': '>>'}[name]
-        cpart = '' if name == 'asl' else ' C = (sh != 0) && (((b >> (sh - 1)) & 1) != 0);'
+        cpart = '' if name == 'asl' else ' C = (b & 1) != 0;'   # lsb before the shift (MN1030 manual, GDB sim)
         return 'local sh:4 = %s & 31; local b:4 = %s; local r:4 = b %s sh;%s %s Z = (r == 0); N = (r s< 0);' % (S, D, opx, cpart, wr(d, 'r'))
     if name in ('mul', 'mulu'):
         ext = 'sext' if name == 'mul' else 'zext'
@@ -548,11 +551,15 @@ def sem_alu(name, ops):
             pre = 'local im:4 = sext(%s:3); ' % S; S = 'im'   # the sim sign-extends imm24 for mul and mulu alike
         return pre + 'local p:8 = %s(%s) * %s(%s); %s mdr = p(4); Z = (p:4 == 0); N = (p:4 s< 0); C = 0; V = 0;' % (ext, D, ext, S, wr(d, 'p:4'))
     if name in ('div', 'divu'):
-        if name == 'div':
-            return ('local num:8 = (zext(mdr) << 32) | zext(%s); local den:8 = sext(%s); local q:8 = num s/ den; local rm:8 = num s%% den; '
-                    'mdr = rm:4; %s Z = (q:4 == 0); N = (q:4 s< 0); V = (den == 0); C = 0;' % (D, S, wr(d, 'q:4')))
-        return ('local num:8 = (zext(mdr) << 32) | zext(%s); local den:8 = zext(%s); local q:8 = num / den; local rm:8 = num %% den; '
-                'mdr = rm:4; %s Z = (q:4 == 0); N = (q:4 s< 0); V = (den == 0); C = 0;' % (D, S, wr(d, 'q:4')))
+        # V on a zero divisor or a quotient that doesn't fit 32 bits (MN1030 manual); then the dividend and MDR are left
+        # as they were. The divisor is forced to 1 when zero so the emulator doesn't trap.
+        ext, dop, rop, fits = (('sext', 's/', 's%', 'sext'), ('zext', '/', '%', 'zext'))[name == 'divu']
+        dst = rd(d)
+        return ('local num:8 = (zext(mdr) << 32) | zext(%s); local den:8 = %s(%s); local dz:1 = (den == 0); '
+                'local dv:8 = den + zext(dz); local q:8 = num %s dv; local rm:8 = num %s dv; '
+                'local ov:1 = dz || (q != %s(q:4)); local keep:4 = zext(ov) * 0xffffffff; '
+                'local qq:4 = (q:4 & ~keep) | (%s & keep); mdr = (rm:4 & ~keep) | (mdr & keep); %s '
+                'Z = (qq == 0); N = (qq s< 0); V = ov; C = 0;' % (D, ext, S, dop, rop, fits, dst, wr(d, 'qq')))
     if name == 'btst':
         return 'local r:4 = %s & %s; %s' % (D, S, flags_logic('r'))
     raise Unsupported(name)
@@ -603,7 +610,7 @@ def sem_dual(name, ops):
             return 'local ca%s:4 = %s; local cb%s:4 = %s; local cr%s:4 = cb%s - ca%s;' % (tag, S, tag, D, tag, tag, tag), None
         if op == 'sat16':
             return ('local sv%s:4 = %s; local sh%s = sv%s s> 0x7fff; local sl%s = sv%s s< 0xffff8000; '
-                    'local res%s:4 = (zext(sh%s) * 0x7fff) + (zext(sl%s) * 0xffff8000) + (zext(!sh%s && !sl%s) * sv%s);' % ((tag, S) + (tag) * 10)), D
+                    'local res%s:4 = (zext(sh%s) * 0x7fff) + (zext(sl%s) * 0xffff8000) + (zext(!sh%s && !sl%s) * sv%s);' % ((tag, S) + (tag,) * 10)), D
         if op == 'swhw': return 'local res%s:4 = (%s << 16) | (%s >> 16);' % (tag, S, S), D
         if op == 'dmach': return 'local res%s:4 = dmach(%s, %s);' % (tag, S, D), D
         raise Unsupported(op)
@@ -685,9 +692,9 @@ def sem(name, ops, size):
     if name == 'movm':
         a, b = ops
         if a.kind == 'REGS':   # push
-            base = b.items[0].kind.lower
+            base = b.items[0].kind.lower()
             return 'build %s;' % reglist_name(a.sym, 'push' + base)
-        base = a.items[0].kind.lower
+        base = a.items[0].kind.lower()
         return 'build %s;' % reglist_name(b.sym, 'pop' + base)
     if name == 'nop': return ''
     if name == 'break': return pseudo('breakpoint', [])
@@ -697,7 +704,7 @@ def sem(name, ops, size):
     if name in ('swap', 'swaph', 'swhw', 'sat16', 'sat24'):
         s, d = rd(ops[0]), ops[1]
         if name == 'swap':
-            e = '((%s & 0xff) << 24) | ((%s & 0xff00) << 8) | ((%s >> 8) & 0xff00) | (%s >> 24)' % ((s) * 4)
+            e = '((%s & 0xff) << 24) | ((%s & 0xff00) << 8) | ((%s >> 8) & 0xff00) | (%s >> 24)' % ((s,) * 4)
         elif name == 'swaph':
             e = '((%s & 0x00ff00ff) << 8) | ((%s >> 8) & 0x00ff00ff)' % (s, s)
         elif name == 'swhw':
@@ -786,12 +793,12 @@ def sem_fp(name, ops):
     raise Unsupported(name)
 
 # ---------------------------------------------------------------- main generation
-def main:
+def main():
     entries = []
     claimed = collections.defaultdict(list)    # size -> list of cubes already taken
     first_bytes = {s: first_byte_cubes(s) for s in range(1, 8)}
     cons = []
-    stats = collections.Counter
+    stats = collections.Counter()
     for idx, op in enumerate(T['opcodes']):
         name, opcode, mask, nomatch, fmt, mach, ops = op
         if mach == AM30: continue
@@ -854,7 +861,7 @@ def main:
                         bit += 1
             pat = '(' + tok_prefix(size - 1, uses) + ')'
             for s in dict.fromkeys(psyms): pat += ' & ' + s
-            dtext = ''.join(' ' + d + ' ' if d not in ',+' else d for d in disp).strip
+            dtext = ''.join(' ' + d + ' ' if d not in ',()+' else d for d in disp).strip()
             dtext = re.sub(r'\s+', ' ', dtext)
             dtext = dtext.replace(' (', '(').replace('( ', '(').replace(' )', ')').replace(' ,', ',').replace(', ', ',')
             dtext = dtext.replace(' +', '+').replace('+ ', '+')
@@ -878,7 +885,7 @@ def main:
         stats['entries'] += 1
     write_spec(cons, stats)
 
-REGLISTS = set
+REGLISTS = set()
 def need_reglist(byte, mode, size):
     REGLISTS.add((byte, mode, size))
 
@@ -954,7 +961,7 @@ def ret_regs(v):
         if r: parts.append('%s = *:4 (sp - %d);' % (r, off))
     return ' '.join(parts)
 
-def entry_text:
+def entry_text():
     """Callee-entry frame setup implied by 'call label,[regs],imm8' (context set at the target)."""
     lines = []
     for v in range(256):
@@ -967,6 +974,8 @@ def write_spec(cons, stats):
     L = []
     L.append('# MN103 / AM33 / AM33-2 (Panasonic MN10300 family) -- GENERATED by gen.py from the binutils')
     L.append('# opcode table (m10300-opc.c) and the GDB simulator semantics. Do not edit by hand.')
+    L.append('# SPDX-License-Identifier: GPL-3.0-or-later. Derived from GNU binutils 2.42 opcodes/m10300-opc.c')
+    L.append('# (Copyright (C) 1996-2024 Free Software Foundation, Inc.) and the GDB mn10300 simulator.')
     L.append('define endian=little;')
     L.append('define alignment=1;')
     L.append('define space ram type=ram_space size=4 default;')
@@ -990,11 +999,11 @@ def write_spec(cons, stats):
     L.append(';')
     for k in range(7):
         fl = ['b%d=(0,7)' % k]
-        for nm, (lo, hi, sg) in sorted(FIELDS[k].items):
+        for nm, (lo, hi, sg) in sorted(FIELDS[k].items()):
             fl.append('%s=(%d,%d)%s' % (nm, lo, hi, ' signed' if sg else ''))
         L.append('define token t%d (8) %s;' % (k, ' '.join(fl)))
     regsets = {'D': ['d0', 'd1', 'd2', 'd3'], 'A': ['a0', 'a1', 'a2', 'a3'], 'R': REGNAMES_R, 'XR': REGNAMES_XR}
-    for rs, fns in ATTACH.items:
+    for rs, fns in ATTACH.items():
         regs = regsets[rs]
         L.append('attach variables [ %s ] [ %s ];' % (' '.join(fns), ' '.join(regs)))
     for p in sorted(PSEUDO):
@@ -1007,7 +1016,7 @@ macro setfpcr(v) { fpcr = v; fccL = (v & 0x200000) != 0; fccG = (v & 0x100000) !
 # loop target from setlb (context flows from the setlb to following code); Lcc with lar_ctx=0 branch indirect via LAR
 lartgt: loc is lar_ctx [ loc = lar_ctx + 0; ] { export *:4 loc; }
 ''')
-    L.append(entry_text)
+    L.append(entry_text())
     for name in SUB_ORDER:
         L.append(SUBTABLES[name])
     for byte, mode, size in sorted(REGLISTS):
@@ -1022,4 +1031,4 @@ lartgt: loc is lar_ctx [ loc = lar_ctx + 0; ] { export *:4 loc; }
     open(os.path.join(OUT, 'mn103.slaspec'), 'w').write('\n'.join(out))
     print(dict(stats), file=sys.stderr)
 
-main
+main()

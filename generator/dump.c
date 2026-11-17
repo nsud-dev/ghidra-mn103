@@ -1,6 +1,9 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Dumps the GNU binutils 2.42 MN10300 opcode table (opcodes/m10300-opc.c, Copyright (C) 1996-2024 Free Software Foundation, Inc.)
+   to JSON; build it inside a binutils source tree. */
 #include <stdio.h>
 #include "opcode/mn10300.h"
-int main{
+int main(){
   int i;
   printf("{\"operands\":[");
   for(i=0;i<256;i++){ const struct mn10300_operand*o=&mn10300_operands[i]; if(i>0 && o->bits==0 && o->flags==0 && o->shift==0) break; printf("%s[%d,%d,%d]",i?",":"",o->bits,o->shift,o->flags);}

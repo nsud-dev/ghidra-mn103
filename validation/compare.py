@@ -14,7 +14,7 @@ od={}
 for line in open(sys.argv[1]):
     a,l,mn,ops=line.rstrip('\n').split('\t')
     od[a]=(int(l),mn,ops)
-bad=collections.Counter; ex={}
+bad=collections.Counter(); ex={}
 n=ok=0
 for line in open(sys.argv[2]):
     a,l,txt=line.rstrip('\n').split('\t',2)

@@ -22,7 +22,7 @@ P=${2:?project dir}
 L=$(cd "$(dirname "${3:?list}")" && pwd)/$(basename "$3")
 O=$(cd "$(dirname "${4:?out}")" && pwd)/$(basename "$4")
 T=${5:-60}
-run {  # run one script on the existing program, no re-import, no auto-analysis
+run() {  # run one script on the existing program, no re-import, no auto-analysis
   "$G/support/analyzeHeadless" "$P" em5iii -process -noanalysis -scriptPath "$HERE/MN103/ghidra_scripts" "$@"
 }
 for i in 1 2 3; do

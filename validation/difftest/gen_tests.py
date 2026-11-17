@@ -9,7 +9,7 @@ import sys, re, random, collections, os, subprocess
 OD, BIN, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 PER = int(sys.argv[4]) if len(sys.argv) > 4 else 25
 BASE = 0x60021020
-data = open(BIN, 'rb').read
+data = open(BIN, 'rb').read()
 random.seed(7)
 
 SKIP = re.compile(r'^(b..|bra|bnc|bns|bvc|bvs|l..|lra|setlb|call|calls|jmp|ret|retf|rets|rti|rtm|trap|syscall|break|nop|movm|unknown'
@@ -21,7 +21,7 @@ def shape(ops):
     s = re.sub(r'-?0x[0-9a-f]+|-?\b\d+\b', 'N', s)
     return s
 
-EXCL = set(l.strip for l in open(os.path.join(OUT, 'exclude.txt'))) if os.path.exists(os.path.join(OUT, 'exclude.txt')) else set
+EXCL = set(l.strip() for l in open(os.path.join(OUT, 'exclude.txt'))) if os.path.exists(os.path.join(OUT, 'exclude.txt')) else set()
 pool = collections.defaultdict(list)
 for line in open(OD):
     a, l, mn, ops = line.rstrip('\n').split('\t')
@@ -42,7 +42,7 @@ for line in open(OD):
     pool[key].append((int(a, 16), int(l), mn, ops))
 
 tests = []
-for key, lst in sorted(pool.items):
+for key, lst in sorted(pool.items()):
     for a, l, mn, ops in random.sample(lst, min(PER, len(lst))):
         tests.append((a, l, mn, ops))
 print(len(tests), 'tests from', len(pool), 'shapes', file=sys.stderr)
@@ -66,7 +66,7 @@ for i, (a, l, mn, ops) in enumerate(tests):
     for r in REGS:
         if mem:
             vals[r] = region + 0x400 + 4 * random.randrange(0x100)
-        elif mn in ('div', 'divu') and random.random < 0.7:
+        elif mn in ('div', 'divu') and random.random() < 0.7:
             vals[r] = random.choice([random.getrandbits(32), random.getrandbits(16), random.getrandbits(8) + 1])
         else:
             vals[r] = random.choice([random.getrandbits(32), random.getrandbits(8), (-random.getrandbits(8)) & 0xffffffff,
@@ -93,7 +93,7 @@ for i, (a, l, mn, ops) in enumerate(tests):
     asm.append('\tmov psw,d0'); asm.append('\tmov d0,(0x%x)' % (o + 64))
     asm.append('\tmov mdr,d0'); asm.append('\tmov d0,(0x%x)' % (o + 68))
     asm.append('\tmov sp,a0'); asm.append('\tmov a0,(0x%x)' % (o + 72))
-    meta.write('%d\t%x\t%s\t%s\t%s\t%s\t%x\n' % (i, a, mn, ops, insn.hex, ' '.join('%s=%x' % (k, v) for k, v in vals.items), region))
+    meta.write('%d\t%x\t%s\t%s\t%s\t%s\t%x\n' % (i, a, mn, ops, insn.hex(), ' '.join('%s=%x' % (k, v) for k, v in vals.items()), region))
 # write(1, OUTB, n*REC); write(1, REGION0, n*4096); exit(0)
 def sys_write(addr, n):
     return ['\tmov 0x%x,a0' % SPV, '\tmov a0,sp', '\tmov 0x%x,d0' % addr, '\tmov d0,(12,sp)', '\tmov 0x%x,d0' % n, '\tmov d0,(16,sp)',
@@ -106,4 +106,4 @@ pat = bytes(pattern(REGION0 + k) for k in range(len(tests) * 0x1000))
 open(os.path.join(OUT, 'regions.bin'), 'wb').write(pat)
 asm += ['\t.org 0x%x' % REGION0, '\t.incbin "%s"' % os.path.join(OUT, 'regions.bin')]
 open(os.path.join(OUT, 'tests.s'), 'w').write('\n'.join(asm) + '\n')
-meta.close
+meta.close()

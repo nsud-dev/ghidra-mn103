@@ -8,15 +8,15 @@ import ghidra.program.model.mem.*;
 
 public class MN103AddRamBlock extends GhidraScript {
     @Override
-    public void run throws Exception {
-        String[] a = getScriptArgs;
+    public void run() throws Exception {
+        String[] a = getScriptArgs();
         long start = a.length > 0 ? Long.decode(a[0]) : 0x62000000L;
         long len = a.length > 1 ? Long.decode(a[1]) : 0x02000000L;
         Address s = toAddr(start);
-        Memory mem = currentProgram.getMemory;
+        Memory mem = currentProgram.getMemory();
         if (mem.getBlock(s) != null) { println("block already exists at " + s); return; }
         MemoryBlock b = mem.createUninitializedBlock("ram_" + Long.toHexString(start), s, len, false);
         b.setRead(true); b.setWrite(true); b.setExecute(false); b.setVolatile(false);
-        println("MN103AddRamBlock: " + b.getName + " " + b.getStart + "-" + b.getEnd);
+        println("MN103AddRamBlock: " + b.getName() + " " + b.getStart() + "-" + b.getEnd());
     }
 }

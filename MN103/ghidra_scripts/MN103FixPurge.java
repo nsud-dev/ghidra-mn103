@@ -10,18 +10,18 @@ import ghidra.program.model.listing.*;
 
 public class MN103FixPurge extends GhidraScript {
     @Override
-    public void run throws Exception {
-        String[] args = getScriptArgs;
+    public void run() throws Exception {
+        String[] args = getScriptArgs();
         boolean set = args.length > 0 && args[0].equals("set");
         int unknown = 0, nonzero = 0, fixed = 0, total = 0;
-        for (Function f : currentProgram.getFunctionManager.getFunctions(true)) {
+        for (Function f : currentProgram.getFunctionManager().getFunctions(true)) {
             total++;
-            int p = f.getStackPurgeSize;
+            int p = f.getStackPurgeSize();
             boolean bad = p == Function.UNKNOWN_STACK_DEPTH_CHANGE || p == Function.INVALID_STACK_DEPTH_CHANGE;
             if (bad) unknown++;
             else if (p != 0) nonzero++;
             if (bad || p != 0) {
-                if (unknown + nonzero <= 40) println("MN103FixPurge: " + f.getName + " purge=" + p);
+                if (unknown + nonzero <= 40) println("MN103FixPurge: " + f.getName() + " purge=" + p);
                 if (set) { f.setStackPurgeSize(0); fixed++; }
             }
         }

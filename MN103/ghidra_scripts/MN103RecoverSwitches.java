@@ -18,41 +18,41 @@ import java.util.*;
 
 public class MN103RecoverSwitches extends GhidraScript {
     @Override
-    public void run throws Exception {
-        FunctionManager fm = currentProgram.getFunctionManager;
-        List<Function> todo = new ArrayList<>;
-        for (String s : getScriptArgs) {
-            List<String> names = new ArrayList<>;
-            if (s.startsWith("@")) { for (String l : Files.readAllLines(new File(s.substring(1)).toPath)) if (!l.isBlank) names.add(l.trim); }
+    public void run() throws Exception {
+        FunctionManager fm = currentProgram.getFunctionManager();
+        List<Function> todo = new ArrayList<>();
+        for (String s : getScriptArgs()) {
+            List<String> names = new ArrayList<>();
+            if (s.startsWith("@")) { for (String l : Files.readAllLines(new File(s.substring(1)).toPath())) if (!l.isBlank()) names.add(l.trim()); }
             else names.add(s);
             for (String n : names) {
                 Function f = n.startsWith("0x") ? fm.getFunctionAt(toAddr(n)) : null;
-                if (f == null && !n.startsWith("0x")) { List<Function> l = getGlobalFunctions(n); if (!l.isEmpty) f = l.get(0); }
+                if (f == null && !n.startsWith("0x")) { List<Function> l = getGlobalFunctions(n); if (!l.isEmpty()) f = l.get(0); }
                 if (f != null) todo.add(f);
             }
         }
-        DecompInterface d = new DecompInterface;
+        DecompInterface d = new DecompInterface();
         d.openProgram(currentProgram);
-        ReferenceManager rm = currentProgram.getReferenceManager;
+        ReferenceManager rm = currentProgram.getReferenceManager();
         int tables = 0, targets = 0;
         for (Function f : todo) {
-            monitor.checkCancelled;
+            monitor.checkCancelled();
             DecompileResults r = d.decompileFunction(f, 60, monitor);
-            if (!r.decompileCompleted) continue;
-            JumpTable[] jts = r.getHighFunction.getJumpTables;
+            if (!r.decompileCompleted()) continue;
+            JumpTable[] jts = r.getHighFunction().getJumpTables();
             if (jts == null) continue;
             boolean changed = false;
             for (JumpTable jt : jts) {
-                Address sw = jt.getSwitchAddress;
+                Address sw = jt.getSwitchAddress();
                 boolean isNew = false;
-                for (Address t : jt.getCases) {
+                for (Address t : jt.getCases()) {
                     if (getInstructionAt(t) == null) {
                         DisassembleCommand dc = new DisassembleCommand(t, null, true);
                         dc.applyTo(currentProgram, monitor);
                         targets++; isNew = true;
                     }
                     boolean has = false;
-                    for (Reference ref : rm.getReferencesFrom(sw)) if (ref.getToAddress.equals(t)) has = true;
+                    for (Reference ref : rm.getReferencesFrom(sw)) if (ref.getToAddress().equals(t)) has = true;
                     if (!has) { rm.addMemoryReference(sw, t, RefType.COMPUTED_JUMP, SourceType.ANALYSIS, CodeUnit.MNEMONIC); isNew = true; }
                 }
                 if (isNew) { tables++; changed = true; }

@@ -19,17 +19,17 @@ public class MN103EmuTests extends GhidraScript {
     }
 
     @Override
-    public void run throws Exception {
-        String[] a = getScriptArgs;
-        AddressSpace ram = currentProgram.getAddressFactory.getDefaultAddressSpace;
+    public void run() throws Exception {
+        String[] a = getScriptArgs();
+        AddressSpace ram = currentProgram.getAddressFactory().getDefaultAddressSpace();
         long code = 0x60021020L;
         try (BufferedReader r = new BufferedReader(new FileReader(a[0]));
              PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(a[1])))) {
             String line;
-            while ((line = r.readLine) != null) {
+            while ((line = r.readLine()) != null) {
                 String[] c = line.split("\t");
                 String id = c[0];
-                byte[] insn = new byte[c[4].length / 2];
+                byte[] insn = new byte[c[4].length() / 2];
                 for (int i = 0; i < insn.length; i++) insn[i] = (byte) Integer.parseInt(c[4].substring(2 * i, 2 * i + 2), 16);
                 long region = Long.parseLong(c[6], 16);
                 EmulatorHelper emu = new EmulatorHelper(currentProgram);
@@ -52,26 +52,26 @@ public class MN103EmuTests extends GhidraScript {
                             emu.writeRegister("V", BigInteger.valueOf((v >> 3) & 1));
                         } else emu.writeRegister(p[0], BigInteger.valueOf(v));
                     }
-                    emu.writeRegister(emu.getPCRegister, BigInteger.valueOf(code));
+                    emu.writeRegister(emu.getPCRegister(), BigInteger.valueOf(code));
                     boolean ok = emu.step(monitor);
                     StringBuilder sb = new StringBuilder(id);
-                    if (!ok) sb.append("\tERR ").append(emu.getLastError);
+                    if (!ok) sb.append("\tERR ").append(emu.getLastError());
                     for (String reg : REGS) sb.append('\t').append(emu.readRegister(reg).toString(16));
-                    long f = emu.readRegister("Z").longValue | (emu.readRegister("N").longValue << 1)
-                            | (emu.readRegister("C").longValue << 2) | (emu.readRegister("V").longValue << 3);
+                    long f = emu.readRegister("Z").longValue() | (emu.readRegister("N").longValue() << 1)
+                            | (emu.readRegister("C").longValue() << 2) | (emu.readRegister("V").longValue() << 3);
                     sb.append('\t').append(Long.toHexString(f));
                     sb.append('\t').append(emu.readRegister("mdr").toString(16));
                     sb.append('\t').append(emu.readRegister("sp").toString(16));
                     byte[] after = emu.readMemory(ram.getAddress(region), 0x1000);
-                    CRC32 crc = new CRC32;
+                    CRC32 crc = new CRC32();
                     crc.update(after);
-                    sb.append('\t').append(Long.toHexString(crc.getValue));
-                    sb.append('\t').append(emu.readRegister(emu.getPCRegister).toString(16));
+                    sb.append('\t').append(Long.toHexString(crc.getValue()));
+                    sb.append('\t').append(emu.readRegister(emu.getPCRegister()).toString(16));
                     w.println(sb);
                 } catch (Exception e) {
                     w.println(id + "\tEXC " + e);
                 } finally {
-                    emu.dispose;
+                    emu.dispose();
                 }
             }
         }

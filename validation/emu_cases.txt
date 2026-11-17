@@ -1,0 +1,17 @@
+# Hand-computed single-instruction cases for MN103CaseTests.java. Expected values are worked out by hand from the
+# instruction definitions (shift carry = lsb before the shift, addc/subc Z from the result, divide overflow sets V and
+# leaves the operands), not taken from the module. The must_fail_ case checks that a wrong expectation is caught.
+# name	hex	asm	before	after
+lsr_imm_carry_is_lsb	f8c403	lsr 3,d0	d0=c C=1	d0=1 C=0 Z=0 N=0
+asr_imm_carry_is_lsb	f8c804	asr 4,d0	d0=80000001 C=0	d0=f8000000 C=1 N=1 Z=0
+asr_reg_carry_is_lsb	f2b4	asr d1,d0	d0=18 d1=4 C=1	d0=1 C=0 Z=0
+lsr_by_one	f2a4	lsr d1,d0	d0=5 d1=1	d0=2 C=1 Z=0
+addc_zero_flag_from_result	f14d	addc d3,d1	d1=0 d3=0 C=0 Z=0	d1=0 Z=1 C=0
+addc_carry_in	f14d	addc d3,d1	d1=ffffffff d3=0 C=1 Z=0	d1=0 Z=1 C=1
+subc_zero_flag_from_result	f18d	subc d3,d1	d1=2 d3=2 C=0 Z=0	d1=0 Z=1 C=0
+subc_borrow_in	f18d	subc d3,d1	d1=0 d3=0 C=1 Z=1	d1=ffffffff Z=0 N=1 C=1
+divu_64_by_32	f271	divu d0,d1	mdr=1 d1=0 d0=3	d1=55555555 mdr=1 V=0
+divu_overflow_keeps_operands	f271	divu d0,d1	mdr=5 d1=0 d0=2	d1=0 mdr=5 V=1
+divu_zero_divisor	f271	divu d0,d1	mdr=0 d1=7 d0=0	d1=7 mdr=0 V=1
+div_signed	f261	div d0,d1	mdr=ffffffff d1=fffffff9 d0=2	d1=fffffffd mdr=ffffffff N=1 V=0
+must_fail_wrong_carry	f8c403	lsr 3,d0	d0=c C=1	d0=1 C=1

@@ -28,83 +28,83 @@ import java.util.*;
 
 public class MN103Annotate extends GhidraScript {
     DataTypeManager dtm;
-    Map<String, DataType> parsed = new HashMap<>;
+    Map<String, DataType> parsed = new HashMap<>();
 
     DataType resolveType(String t) {
-        t = t.trim;
-        if (t.endsWith("*")) { DataType b = resolveType(t.substring(0, t.length - 1)); return b == null ? null : new PointerDataType(b, dtm); }
+        t = t.trim();
+        if (t.endsWith("*")) { DataType b = resolveType(t.substring(0, t.length() - 1)); return b == null ? null : new PointerDataType(b, dtm); }
         if (t.endsWith("]")) {
             int i = t.lastIndexOf('[');
             DataType b = resolveType(t.substring(0, i));
-            int n = Integer.decode(t.substring(i + 1, t.length - 1));
-            return b == null ? null : new ArrayDataType(b, n, b.getLength, dtm);
+            int n = Integer.decode(t.substring(i + 1, t.length() - 1));
+            return b == null ? null : new ArrayDataType(b, n, b.getLength(), dtm);
         }
         if (parsed.containsKey(t)) return parsed.get(t);
-        List<DataType> l = new ArrayList<>;
+        List<DataType> l = new ArrayList<>();
         dtm.findDataTypes(t, l);
-        if (!l.isEmpty) return l.get(0);
-        DataType b = BuiltInDataTypeManager.getDataTypeManager.getDataType(new CategoryPath("/"), t);
+        if (!l.isEmpty()) return l.get(0);
+        DataType b = BuiltInDataTypeManager.getDataTypeManager().getDataType(new CategoryPath("/"), t);
         return b;
     }
 
     void regStorage(Function f, List<String> warn) {
-        Parameter[] ps = f.getParameters;
+        Parameter[] ps = f.getParameters();
         boolean any = false;
-        for (Parameter p : ps) if (p.getName.matches(".*__([da][01]|s\\d+)")) any = true;
+        for (Parameter p : ps) if (p.getName().matches(".*__([da][01]|s\\d+)")) any = true;
         if (!any) return;
         try {
-            List<Parameter> np = new ArrayList<>;
+            List<Parameter> np = new ArrayList<>();
             for (Parameter p : ps) {
-                String n = p.getName;
-                VariableStorage st = p.getVariableStorage;
+                String n = p.getName();
+                VariableStorage st = p.getVariableStorage();
                 java.util.regex.Matcher m = java.util.regex.Pattern.compile("(.*)__([da][01]|s(\\d+))").matcher(n);
-                if (m.matches) {
+                if (m.matches()) {
                     n = m.group(1);
-                    if (m.group(3) != null) st = new VariableStorage(currentProgram, Integer.parseInt(m.group(3)), p.getLength);
+                    if (m.group(3) != null) st = new VariableStorage(currentProgram, Integer.parseInt(m.group(3)), p.getLength());
                     else st = new VariableStorage(currentProgram, currentProgram.getRegister(m.group(2)));
                 }
-                np.add(new ParameterImpl(n, p.getDataType, st, currentProgram));
+                np.add(new ParameterImpl(n, p.getDataType(), st, currentProgram));
             }
-            f.updateFunction(f.getCallingConventionName, f.getReturn, np, Function.FunctionUpdateType.CUSTOM_STORAGE, true, SourceType.USER_DEFINED);
-        } catch (Exception e) { warn.add("storage " + f.getName + ": " + e.getMessage); }
+            f.updateFunction(f.getCallingConventionName(), f.getReturn(), np, Function.FunctionUpdateType.CUSTOM_STORAGE, true, SourceType.USER_DEFINED);
+        } catch (Exception e) { warn.add("storage " + f.getName() + ": " + e.getMessage()); }
     }
 
     @Override
-    public void run throws Exception {
-        String[] a = getScriptArgs;
-        dtm = currentProgram.getDataTypeManager;
+    public void run() throws Exception {
+        String[] a = getScriptArgs();
+        dtm = currentProgram.getDataTypeManager();
         String header = Files.readString(Path.of(a[0]));
         CParser p = new CParser(dtm, true, null);
         p.parse(header);
-        parsed.putAll(p.getComposites);
-        parsed.putAll(p.getTypes);
-        parsed.putAll(p.getEnums);
-        Map<String, DataType> protos = p.getFunctions;
-        println("MN103Annotate: parsed " + p.getComposites.size + " composites, " + p.getTypes.size + " typedefs, " + protos.size + " prototypes");
+        parsed.putAll(p.getComposites());
+        parsed.putAll(p.getTypes());
+        parsed.putAll(p.getEnums());
+        Map<String, DataType> protos = p.getFunctions();
+        println("MN103Annotate: parsed " + p.getComposites().size() + " composites, " + p.getTypes().size() + " typedefs, " + protos.size() + " prototypes");
 
-        Map<Address, String> fileOf = new TreeMap<>;
-        Map<String, String> fileDoc = new HashMap<>;
+        Map<Address, String> fileOf = new TreeMap<>();
+        Map<String, String> fileDoc = new HashMap<>();
         String curDoc = null;
         Function cur = null;
         Address curPre = null;
-        StringBuilder text = new StringBuilder;
+        StringBuilder text = new StringBuilder();
         int nf = 0, nd = 0, nc = 0, np = 0;
-        List<String> warn = new ArrayList<>;
-        List<String> hide = new ArrayList<>;
+        List<String> warn = new ArrayList<>();
+        List<String> hide = new ArrayList<>();
         List<String> lines = Files.readAllLines(Path.of(a[1]));
         lines.add("end");
         for (String raw : lines) {
-            String l = raw.strip;
-            if (l.startsWith("|")) { text.append(l.length > 1 ? l.substring(l.charAt(1) == ' ' ? 2 : 1) : "").append('\n'); continue; }
+            String l = raw.strip();
+            if (l.startsWith("|")) { text.append(l.length() > 1 ? l.substring(l.charAt(1) == ' ' ? 2 : 1) : "").append('\n'); continue; }
             // flush pending comment
-            if (text.length > 0) {
-                String t = text.toString.stripTrailing;
+            if (text.length() > 0) {
+                String t = text.toString().stripTrailing();
                 if (curDoc != null) fileDoc.put(curDoc, t);
-                else if (curPre != null) { currentProgram.getListing.setComment(curPre, CodeUnit.PRE_COMMENT, t); nc++; }
+                else if (curPre != null) { currentProgram.getListing().setComment(curPre, CodeUnit.PRE_COMMENT, t); nc++; }
                 else if (cur != null) cur.setComment(t);
                 text.setLength(0);
             }
-            if (l.isEmpty || l.startsWith("#")) continue;
+            if (l.isEmpty() || l.startsWith("#")) continue;
             String[] w = l.split("\\s+", 4);
             curDoc = null;
             switch (w[0]) {
@@ -125,7 +125,7 @@ public class MN103Annotate extends GhidraScript {
                     break;
                 }
                 case "pre": curPre = toAddr(w[1]); break;
-                case "eol": currentProgram.getListing.setComment(toAddr(w[1]), CodeUnit.EOL_COMMENT, l.split("\\s+", 3)[2]); nc++; break;
+                case "eol": currentProgram.getListing().setComment(toAddr(w[1]), CodeUnit.EOL_COMMENT, l.split("\\s+", 3)[2]); nc++; break;
                 case "data": {
                     Address ad = toAddr(w[1]);
                     if (getMemoryBlock(ad) == null) { warn.add("no memory at " + w[1] + " (add a block with MN103AddRamBlock)"); break; }
@@ -133,7 +133,7 @@ public class MN103Annotate extends GhidraScript {
                     if (w.length > 3) {
                         DataType t = resolveType(w[3]);
                         if (t == null) warn.add("unknown type " + w[3]);
-                        else { clearListing(ad, ad.add(Math.max(t.getLength, 1) - 1)); createData(ad, t); }
+                        else { clearListing(ad, ad.add(Math.max(t.getLength(), 1) - 1)); createData(ad, t); }
                     }
                     nd++;
                     break;
@@ -142,10 +142,10 @@ public class MN103Annotate extends GhidraScript {
                 case "ret": {
                     if (cur == null) break;
                     try {
-                        ReturnParameterImpl rp = new ReturnParameterImpl(cur.getReturnType, new VariableStorage(currentProgram, currentProgram.getRegister(w[1])), currentProgram);
-                        List<Parameter> keepPs = new ArrayList<>(Arrays.asList(cur.getParameters));
-                        cur.updateFunction(cur.getCallingConventionName, rp, keepPs, Function.FunctionUpdateType.CUSTOM_STORAGE, true, SourceType.USER_DEFINED);
-                    } catch (Exception e) { warn.add("ret " + cur.getName + ": " + e.getMessage); }
+                        ReturnParameterImpl rp = new ReturnParameterImpl(cur.getReturnType(), new VariableStorage(currentProgram, currentProgram.getRegister(w[1])), currentProgram);
+                        List<Parameter> keepPs = new ArrayList<>(Arrays.asList(cur.getParameters()));
+                        cur.updateFunction(cur.getCallingConventionName(), rp, keepPs, Function.FunctionUpdateType.CUSTOM_STORAGE, true, SourceType.USER_DEFINED);
+                    } catch (Exception e) { warn.add("ret " + cur.getName() + ": " + e.getMessage()); }
                     break;
                 }
                 case "end": break;
@@ -157,50 +157,50 @@ public class MN103Annotate extends GhidraScript {
         for (String s : warn) println("MN103Annotate: WARNING " + s);
 
         // write C, grouped by file
-        DecompileOptions opt = new DecompileOptions;
+        DecompileOptions opt = new DecompileOptions();
         opt.grabFromProgram(currentProgram);
         opt.setPRECommentIncluded(true);
         opt.setPLATECommentIncluded(true);
         opt.setEOLCommentIncluded(true);
         opt.setMaxWidth(120);
-        DecompInterface d = new DecompInterface;
+        DecompInterface d = new DecompInterface();
         d.setOptions(opt);
         d.openProgram(currentProgram);
-        Map<String, StringBuilder> out = new TreeMap<>;
-        for (Map.Entry<Address, String> e : fileOf.entrySet) {
-            Function f = getFunctionAt(e.getKey);
+        Map<String, StringBuilder> out = new TreeMap<>();
+        for (Map.Entry<Address, String> e : fileOf.entrySet()) {
+            Function f = getFunctionAt(e.getKey());
             DecompileResults r = d.decompileFunction(f, 120, monitor);
-            StringBuilder sb = out.computeIfAbsent(e.getValue, k -> new StringBuilder);
-            sb.append("/* @ 0x").append(f.getEntryPoint).append(" */\n");
-            if (r.decompileCompleted) {
-                String c = r.getDecompiledFunction.getC.strip;
+            StringBuilder sb = out.computeIfAbsent(e.getValue(), k -> new StringBuilder());
+            sb.append("/* @ 0x").append(f.getEntryPoint()).append(" */\n");
+            if (r.decompileCompleted()) {
+                String c = r.getDecompiledFunction().getC().strip();
                 for (String h : hide) c = c.replaceAll("(?m)^[ \\t]*" + java.util.regex.Pattern.quote(h) + "\\([^;]*\\);[ \\t]*\\n", "");
                 c = c.replace("/* WARNING: Unknown calling convention */\n", "");
                 sb.append(c).append("\n\n\n");
             }
-            else sb.append("/* decompile failed: ").append(r.getErrorMessage).append(" */\n\n");
+            else sb.append("/* decompile failed: ").append(r.getErrorMessage()).append(" */\n\n");
         }
         Path od = Path.of(a[2]);
         Files.createDirectories(od);
-        for (Map.Entry<String, StringBuilder> e : out.entrySet) {
-            String hdr = "/* " + e.getKey + ": decompiled by Ghidra (MN103 module) from " + currentProgram.getName
-                + ", names/types/comments from " + Path.of(a[1]).getFileName + ". Generated file: edit the annotations, not this. */\n"
-                + "#include \"" + Path.of(a[0]).getFileName + "\"\n\n"
-                + (fileDoc.containsKey(e.getKey) ? "/*\n * " + fileDoc.get(e.getKey).replace("\n", "\n * ") + "\n */\n\n" : "");
-            Files.writeString(od.resolve(e.getKey), hdr + e.getValue);
+        for (Map.Entry<String, StringBuilder> e : out.entrySet()) {
+            String hdr = "/* " + e.getKey() + ": decompiled by Ghidra (MN103 module) from " + currentProgram.getName()
+                + ", names/types/comments from " + Path.of(a[1]).getFileName() + ". Generated file: edit the annotations, not this. */\n"
+                + "#include \"" + Path.of(a[0]).getFileName() + "\"\n\n"
+                + (fileDoc.containsKey(e.getKey()) ? "/*\n * " + fileDoc.get(e.getKey()).replace("\n", "\n * ") + "\n */\n\n" : "");
+            Files.writeString(od.resolve(e.getKey()), hdr + e.getValue());
         }
-        println("MN103Annotate: wrote " + out.size + " files to " + od);
+        println("MN103Annotate: wrote " + out.size() + " files to " + od);
 
         if (a.length > 3) {
             File gdt = new File(a[3]);
-            if (gdt.exists) gdt.delete;
+            if (gdt.exists()) gdt.delete();
             FileDataTypeManager arch = FileDataTypeManager.createFileArchive(gdt);
             int tx = arch.startTransaction("types");
-            for (DataType t : parsed.values) arch.resolve(t, DataTypeConflictHandler.REPLACE_HANDLER);
-            for (DataType t : protos.values) arch.resolve(t, DataTypeConflictHandler.REPLACE_HANDLER);
+            for (DataType t : parsed.values()) arch.resolve(t, DataTypeConflictHandler.REPLACE_HANDLER);
+            for (DataType t : protos.values()) arch.resolve(t, DataTypeConflictHandler.REPLACE_HANDLER);
             arch.endTransaction(tx, true);
-            arch.save;
-            arch.close;
+            arch.save();
+            arch.close();
             println("MN103Annotate: type archive " + gdt);
         }
     }

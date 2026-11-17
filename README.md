@@ -14,7 +14,8 @@ What's here:
 - Ghidra scripts for loading symbols, fixing call frames, recovering switch tables and batch decompiling
 - The generator that builds the SLEIGH spec from the binutils opcode table, and the tests used to check it
 
-Tested with Ghidra 11.4.2 on Java 21. The language ID is `MN103:LE:32:AM33-2`.
+Tested with Ghidra 11.4.2 on Java 21; the CI build also runs on the newest Ghidra release. The language ID is
+`MN103:LE:32:AM33-2`.
 
 ## Installing
 
@@ -57,10 +58,13 @@ next to this one, or point `OLYFW` at the script.
 
 ## MN103 quirks the module handles
 
-**The caller sets up the callee's frame.** `call label,[d2,d3,a2],24` saves the callee's registers and allocates its
-24-byte stack frame. The module treats that as part of the callee's entry, so stack locals and arguments land where
-the decompiler expects them. `ret` and `retf` undo it. If a function gets disassembled before any of its callers, it
-misses this, which is what `MN103FixCallFrames` fixes.
+**The caller sets up the callee's frame.** Code from Panasonic's compiler, which built the Olympus firmware, doesn't
+build its stack frame in the function. The call does it: `call label,[d2,d3,a2],24` saves the callee's registers and
+allocates its 24-byte frame, and `ret`/`retf` undo it. Treated as part of the caller, this makes the decompiler lose
+track of the stack in every function, so arguments and locals show up as unknown registers. This module treats it as part of
+the callee's entry, so stack locals and arguments land where the decompiler expects them. The call passes that
+information to the callee through context, so a function disassembled before any of its callers misses it.
+`MN103FixCallFrames` fixes that; run it after analysis.
 
 **Hardware loops.** `setlb` marks a loop start and the `Lcc` instructions (`lne`, `llt` and so on) branch back to it.
 The module tracks the loop start, so these decompile as ordinary `do { } while` loops.
@@ -77,28 +81,39 @@ named pseudo-ops, so they show up as calls like `mac(...)`.
 Register names follow objdump, except AM33's xr1 to xr4, which are named `mdrq`, `mcrh`, `mcrl` and `mcvf` after what
 they hold.
 
-## How it was built and tested
+## How it was built
 
 `generator/gen.py` writes `mn103.slaspec` from the binutils 2.42 opcode table (`table.json`, dumped from
-`opcodes/m10300-opc.c` by `dump.c`). Decoding follows binutils exactly, and the instruction semantics follow the GDB
-simulator (gdb 15.1). To regenerate:
+`opcodes/m10300-opc.c` by `dump.c`). Decoding follows binutils exactly. The instruction semantics follow the GDB
+simulator (gdb 15.1), except where the MN1030 instruction definitions say otherwise: the carry flag of `asr`/`lsr`,
+the zero flag of `addc`/`subc`, and divide overflow. To regenerate:
 
 ```sh
 python3 gen.py table.json m10300-opc.c out/
 ```
 
-The tests:
+## What it's verified against
 
-- **Decoding.** Every position objdump decodes in a 25 MB firmware block, 14,086,364 instructions, decodes
-  identically. So do 3,164,334 instructions from 5 MB of random bytes.
-- **Semantics.** I ran 4,489 single instructions in both the GDB simulator and Ghidra's p-code emulator and compared
-  registers, flags and memory. 4,250 agree. Every one of the 239 differences traced back to a bug in the simulator,
-  not the module: saturating ops, `swhw_add`, some carry and overflow flags. The full list is in
-  `validation/difftest/result-sim-vs-ghidra.txt`.
+- **Decoding, against GNU objdump 2.42.** Every position objdump decodes in the E-M5 Mark III's 25 MB main firmware
+  block, 14,086,364 instructions, decodes identically, and so do 3,164,334 instructions from 5 MB of random bytes
+  (`validation/DecodeAt.java`, `parse_od.py`, `compare.py`).
+- **Semantics, against the GDB simulator.** 4,489 single instructions, taken from the firmware with random register
+  values, ran in both the simulator and Ghidra's p-code emulator, comparing registers, flags and memory. 4,250 agreed.
+  The 239 differences are listed in `validation/difftest/result-sim-vs-ghidra.txt`. Most come from simulator bugs
+  (saturating ops, `swhw_add`, some overflow flags). The `asr`/`lsr` carry and `addc`/`subc` zero-flag cases were module
+  errors and are fixed.
+- **Hand-computed cases.** `validation/emu_cases.txt` holds single-instruction cases with expected values worked out by
+  hand (shift carry, add/subtract with carry, divide, divide overflow and divide by zero), plus one case with a wrong
+  expectation that must fail. `MN103CaseTests.java` runs them in Ghidra's emulator.
+- **Builds and runs.** On every push, CI (`.github/workflows/build.yml`) compiles the SLEIGH spec and every script on
+  Ghidra 11.4.2 and the newest Ghidra release, then runs the emulator cases.
+- **Decompiling real code.** `validation/decompile_check.sh` imports the E-M5 III 1.7 main block with Ghidra's
+  auto-analysis, runs `MN103FixCallFrames` and decompiles the 40 functions in `validation/decompile_funcs.txt` (spread
+  over the block, 120 to 500 bytes each). All 40 decompile. Across them the decompiler leaves 30 unresolved inputs
+  (`in_*`) and 63 `unaff_*` registers (40 of them `a3`), and one function hits a bad instruction (`halt_baddata`).
+  About 14 minutes on 4 cores with Ghidra 11.4.2. You need your own copy of the stock firmware to run it.
 
-The scripts for both checks are in `validation/`.
-
-## Scripts
+## Scripts## Scripts
 
 | script | what it does |
 |---|---|
@@ -112,12 +127,36 @@ The scripts for both checks are in `validation/`.
 
 `export_headless.sh` runs a batch decompile. Its optional CSV inputs come from tools that aren't published here.
 
-## Known limits
+## Doesn't work
 
-- Divide by zero isn't modelled. The hardware sets V and returns `0xff`.
-- FPU ops are modelled but weren't tested against the simulator.
-- Ghidra prototypes can't express the d/a register split, so hot functions need their signatures edited by hand.
+- Left as named pseudo-ops, so they show up as calls such as `mac(...)`: the multiply-accumulate family (`mac`,
+  `macu`, `macb`, `mach`, `dmach` and their variants), `dmulh`/`dmulhu`, `bsch`, `mcst9`/`mcst48`/`mcste`,
+  `getchx`/`getclx`, the `udf` instructions other than `udf00`/`udf01`, and the system instructions.
+- Ghidra prototypes can't express the d/a register split, so functions that take both integers and pointers need
+  their signatures edited by hand.
 - Functions with two entry points decompile correctly from the second one only.
+
+## Unverified
+
+- `udf00`/`udfu00` and `udf01`/`udfu01` are modelled as a 32-bit multiply, a guess from how the firmware uses them.
+- `sat16`, `sat24`, `swap`, `swaph` and `swhw` are modelled from the simulator's descriptions, but the simulator's
+  own results disagree with them in some saturating cases (see the difftest list), so neither is confirmed.
+- FPU ops are modelled but weren't tested against the simulator or hardware.
+- After a divide by zero or a divide overflow, the module leaves the dividend and MDR unchanged. What the hardware
+  leaves there isn't documented.
+- The flags of the three- and four-operand AM33 forms are modelled like the two-operand forms.
+- D10 dual operations whose two destinations are the same register are undefined; the module decodes them anyway.
+- Nothing has been checked on hardware other than through the firmware it runs.
+
+## Related work
+
+Other Ghidra modules for this CPU family:
+[michaelbrandi/ghidra-mn103-extension](https://github.com/michaelbrandi/ghidra-mn103-extension) and its fork
+[aleph-void/ghidra-mn103-extension](https://github.com/aleph-void/ghidra-mn103-extension) (`ghidra-rare` branch,
+Apache-2.0: MN10300, AM33 and AM33-2, ELF loading, semantics from the MN1030 manual and compiled C), and
+[txt231/GhidraMn10300](https://github.com/txt231/GhidraMn10300). The `ghidra-rare` module covers the three
+machine variants as separate languages, loads ELF files with relocations and DWARF, targets Ghidra 12, and documents
+its semantics sources in detail. Nothing from these modules is in this one.
 
 ## AI disclosure
 
@@ -131,5 +170,6 @@ something looks wrong, please open an issue.
 
 ## Licence
 
-GPL-3.0-or-later, because the SLEIGH spec is generated from the GNU binutils opcode table and the semantics follow the
-GNU simulator. See [COPYING](COPYING).
+GPL-3.0-or-later, because the SLEIGH spec is generated from the GNU binutils 2.42 opcode table (Copyright (C) Free
+Software Foundation, Inc.) and the semantics follow the GDB simulator, both GPL-3.0-or-later. Thanks to the binutils and
+GDB developers. The full licence text is in [COPYING](COPYING); [LICENSE.md](LICENSE.md) says which parts are derived.

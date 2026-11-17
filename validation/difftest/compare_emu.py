@@ -4,14 +4,14 @@ import sys, struct, zlib, collections, re
 D = sys.argv[1]
 tests = [l.rstrip('\n').split('\t') for l in open(D + '/tests.tsv')]
 n = len(tests)
-raw = open(D + '/sim.out', 'rb').read
+raw = open(D + '/sim.out', 'rb').read()
 REC = 80
 REGS = ['d0', 'd1', 'd2', 'd3', 'a0', 'a1', 'a2', 'a3', 'r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7']
 emu = {}
 for l in open(D + '/emu.tsv'):
     p = l.rstrip('\n').split('\t')
     emu[p[0]] = p[1:]
-bad = collections.Counter; ex = {}
+bad = collections.Counter(); ex = {}
 okc = 0; skipped = 0
 def shape(ops):
     s = re.sub(r'\b[dar]\d\b', 'R', ops)
@@ -29,17 +29,17 @@ for i, t in enumerate(tests):
     e = emu.get(t[0])
     key = (t[2], shape(t[3]))
     if e is None or e[0].startswith('E'):
-        bad[key + ('emu-error')] += 1; ex.setdefault(key + ('emu-error'), (t, e)); continue
+        bad[key + ('emu-error',)] += 1; ex.setdefault(key + ('emu-error',), (t, e)); continue
     g = {r: int(e[k], 16) for k, r in enumerate(REGS)}
     g['flags'] = int(e[16], 16); g['mdr'] = int(e[17], 16); g['sp'] = int(e[18], 16); g['mem'] = int(e[19], 16)
     diffs = [k for k in sim if sim[k] != g[k]]
     if not diffs:
         okc += 1; continue
-    k2 = key + (','.join(diffs))
+    k2 = key + (','.join(diffs),)
     bad[k2] += 1
     if k2 not in ex:
-        init = dict(kv.split('=') for kv in t[5].split)
+        init = dict(kv.split('=') for kv in t[5].split())
         ex[k2] = (t[:5], {d: ('init ' + init.get(d, '?'), 'sim %x' % sim[d], 'ghidra %x' % g[d]) for d in diffs})
 print('tests', n, 'skipped (invalid dual-op encodings)', skipped, 'agree', okc, 'differ', n - okc - skipped)
-for k, c in sorted(bad.items, key=lambda x: -x[1]):
+for k, c in sorted(bad.items(), key=lambda x: -x[1]):
     print(c, k, ex[k])
