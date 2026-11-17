@@ -52,11 +52,27 @@ public class MN103Decompile extends GhidraScript {
                         w.println("// global " + g.getName() + " @ " + g.getStorage().getMinAddress() + " "
                                   + g.getDataType().getDisplayName().replace(' ', '_'));
                     }
+                if (!hasEntryFrame(f))
+                    w.println("/* MN103: no disassembled `call` reaches this entry and it has no movm prologue, so the register saves\n"
+                            + "   and frame size that a caller's `call` instruction sets up are missing: stack offsets are off by the frame size, so\n"
+                            + "   locals can show up as unresolved stack inputs. Disassemble a caller, rerun MN103FixCallFrames, decompile again. */");
                 if (r.decompileCompleted()) w.println(r.getDecompiledFunction().getC());
                 else w.println("// failed: " + r.getErrorMessage());
             }
         }
         }
+
+    // true when the entry has a frame: the callee-entry context that MN103FixCallFrames (or a call disassembled
+    // before the entry) sets, or the function's own movm prologue
+    private boolean hasEntryFrame(Function f) {
+        ProgramContext pc = currentProgram.getProgramContext();
+        ghidra.program.model.lang.Register e = pc.getRegister("ctx_entry");
+        java.math.BigInteger v = e == null ? null : pc.getValue(e, f.getEntryPoint(), false);
+        if (v != null && v.intValue() == 1) return true;
+        // entries reached by `calls` (indirect) set up their own frame: movm [regs],(sp) then add -n,sp
+        Instruction i = currentProgram.getListing().getInstructionAt(f.getEntryPoint());
+        return i != null && i.getMnemonicString().equals("movm") && i.toString().endsWith("(sp)");
+    }
 
     private static String regsLine(Function f) {
         StringBuilder b = new StringBuilder("// regs " + f.getName() + " @ " + f.getEntryPoint() + " ret=");

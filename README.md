@@ -111,10 +111,42 @@ python3 gen.py table.json m10300-opc.c out/
 - **Decompiling real code.** `validation/decompile_check.sh` imports the E-M5 III 1.7 main block with Ghidra's
   auto-analysis, runs `MN103FixCallFrames` and decompiles the 40 functions in `validation/decompile_funcs.txt` (spread
   over the block, 120 to 500 bytes each, taken from functions whose boundaries were confirmed). All 40 decompile, with
-  no `unaff_*` registers and no bad instructions. The decompiler leaves 29 references to unresolved inputs (`in_*`) in
-  7 functions. All of them are real arguments that Ghidra's prototype doesn't list: a pointer passed in a1 without
-  one in a0, or a stack argument (see Doesn't work). About 14 minutes on 4 cores with Ghidra 11.4.2. You need your own
-  copy of the stock firmware to run it.
+  no `unaff_*` registers and no bad instructions at any stage. It counts the unresolved inputs (`in_*`) three times:
+  29 right after auto-analysis, 15 once the callers that auto-analysis never reached are disassembled and the call
+  frames are set again, and 0 after `MN103InferParams`. About 14 minutes on 4 cores with Ghidra 11.4.2. You need your
+  own copy of the stock firmware to run it. The next section says what the counts mean.
+
+## Reading the decompile check
+
+Ghidra's decompiler gives a value it can't explain a name that says where it came from. Seeing these names in a
+decompile doesn't by itself mean the processor module is wrong; each one points at something specific.
+
+- **`in_<register>` and `in_stack_<offset>`**: the function reads a register or stack slot it never wrote, and the
+  decompiler hasn't counted it as a parameter. In this firmware there are two causes, both handled:
+  - *No call frame yet.* On this CPU the caller's `call` instruction saves the callee's registers and reserves its
+    stack frame (see "The caller sets up the callee's frame" above). If auto-analysis never disassembled any caller of
+    a function, the function has no frame, so its stack offsets are off by the frame size and ordinary locals show up
+    as `in_stack_*`. In the check, 12 of the 40 functions start like this. `MN103Decompile` puts a comment at the top of
+    such a function. Disassemble one of its callers (or import with a function list), run `MN103FixCallFrames` again
+    and decompile again. Step 2 of the check does this with `validation/DisassembleCallers.java`.
+  - *Parameter order.* Ghidra's parameter model takes d0, d1, a0 and a1 in that fixed order. When a function
+    overwrites d0 before it reads a pointer argument in a1, the decompiler drops a1 and shows it as `in_a1`.
+    `MN103InferParams` adds such registers as parameters (step 3).
+- **`unaff_<register>`**: a callee-saved register (d2, d3, a2, a3, r4 to r7) read before the function saved or wrote
+  it. Compiled functions in this firmware don't do that once their frame is set, so the check finds none. Many of
+  them in one function mean the bytes being decompiled are probably data, not code.
+- **`halt_baddata`**: the decompiler reached bytes that aren't a valid instruction. In firmware this almost always
+  means data decoded as code: a table or a string inside what was taken to be a function.
+
+An earlier version of the check reported 63 `unaff_*` (40 of them `a3`) and one `halt_baddata`. All of them came from
+two sample addresses that turned out to be data: one inside a table of floating-point numbers, one in a block of
+text. The instruction the decompiler stopped at (bytes `f1 ff`) isn't valid MN103 for binutils either. `a3` is an
+ordinary callee-saved address register in this code, not a global base pointer. The sample now uses functions whose
+boundaries were confirmed.
+
+What stays a real limit: Ghidra decompiles what auto-analysis has disassembled. Code reached only through tables or
+from code that isn't disassembled yet needs a function list or a manual disassembly before its call frames and
+parameters are right.
 
 ## Scripts
 
@@ -123,8 +155,8 @@ python3 gen.py table.json m10300-opc.c out/
 | `MN103LoadSymbols` | creates functions and labels from a CSV symbol list |
 | `MN103FixCallFrames` | sets up callee frames at every call target and re-disassembles the entries |
 | `MN103AddRamBlock` | adds an uninitialised RAM block for globals (default 32 MB at `0x62000000`) |
-| `MN103Decompile` | writes decompiled C for a list of functions |
-| `MN103InferParams` | infers parameters from how registers are used, so call sites show their arguments |
+| `MN103Decompile` | writes decompiled C for a list of functions, with a comment on any function that has no call frame yet |
+| `MN103InferParams` | infers parameters from how registers are used, including a pointer in a1 that Ghidra's fixed order drops, so call sites show their arguments |
 | `MN103RecoverSwitches` | recovers switch tables in projects imported without auto-analysis |
 | `MN103Annotate` | applies a C header and a names and comments file, then writes commented C |
 
@@ -135,9 +167,9 @@ python3 gen.py table.json m10300-opc.c out/
 - Left as named pseudo-ops, so they show up as calls such as `mac(...)`: the multiply-accumulate family (`mac`,
   `macu`, `macb`, `mach`, `dmach` and their variants), `dmulh`/`dmulhu`, `bsch`, `mcst9`/`mcst48`/`mcste`,
   `getchx`/`getclx`, the `udf` instructions other than `udf00`/`udf01`, and the system instructions.
-- Ghidra prototypes can't express the d/a register split, so functions that take both integers and pointers need
-  their signatures edited by hand. Until then, a pointer argument in a1 (with nothing in a0) and stack arguments show
-  up as `in_a1` and `in_stack_*`. `MN103InferParams` doesn't fix these cases yet.
+- Ghidra prototypes can't express the d/a register split. `MN103InferParams` writes signatures with the right
+  registers for the functions you give it; for anything else (library functions outside the block, or ones you
+  type yourself) edit the signature by hand.
 - Functions with two entry points decompile correctly from the second one only.
 
 ## Unverified

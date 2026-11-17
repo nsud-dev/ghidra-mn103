@@ -83,6 +83,29 @@ public class MN103InferParams extends GhidraScript {
                 DataType t = s.getDataType();
                 ps.add(new ParameterImpl("param_" + (ps.size() + 1), t, st, currentProgram));
             }
+            // d0/d1/a0/a1 read before written but not taken as parameters (the decompiler shows them as in_d0..in_a1):
+            // its fixed d0,d1,a0,a1 order drops a later register when an earlier one is overwritten first
+            // (`clr d0` then a1 used). Under the MN103 ABI these are caller-set arguments, so add them.
+            Set<Register> have = new HashSet<>();
+            for (Parameter p : ps) if (p.getRegister() != null) have.add(p.getRegister().getBaseRegister());
+            for (Iterator<HighSymbol> it = lm.getSymbols(); it.hasNext();) {
+                HighSymbol s = it.next();
+                if (s.isParameter() || s.getHighVariable() == null) continue;
+                for (Varnode v : s.getHighVariable().getInstances()) {
+                    if (!v.isInput() || !v.isRegister()) continue;
+                    Register rg = currentProgram.getRegister(v.getAddress(), v.getSize());
+                    if (rg == null) continue;
+                    Register b = rg.getBaseRegister();
+                    if (!Arrays.asList(regs).contains(b) || !have.add(b)) continue;
+                    DataType t = s.getDataType().getLength() == 4 ? s.getDataType() : Undefined4DataType.dataType;
+                    ps.add(new ParameterImpl("param_x", t, new VariableStorage(currentProgram, b), currentProgram));
+                }
+            }
+            // registers in ABI order d0,d1,a0,a1, then stack parameters by offset
+            List<Register> order4 = Arrays.asList(regs);
+            ps.sort(Comparator.comparingLong(p -> p.getRegister() != null
+                    ? order4.indexOf(p.getRegister().getBaseRegister()) - 1000L : p.getStackOffset()));
+            for (int i = 0; i < ps.size(); i++) ps.get(i).setName("param_" + (i + 1), SourceType.ANALYSIS);
             DataType rt = h.getFunctionPrototype().getReturnType();
             VariableStorage rs = h.getFunctionPrototype().getReturnStorage();
             try {
