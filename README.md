@@ -64,7 +64,8 @@ allocates its 24-byte frame, and `ret`/`retf` undo it. Treated as part of the ca
 track of the stack in every function, so arguments and locals show up as unknown registers. This module treats it as part of
 the callee's entry, so stack locals and arguments land where the decompiler expects them. The call passes that
 information to the callee through context, so a function disassembled before any of its callers misses it.
-`MN103FixCallFrames` fixes that; run it after analysis.
+`MN103FixCallFrames` fixes that; run it after analysis. For a function with no direct call (reached through a table),
+it takes the frame from the function's own `ret`/`retf`, which undo exactly what the call set up.
 
 **Hardware loops.** `setlb` marks a loop start and the `Lcc` instructions (`lne`, `llt` and so on) branch back to it.
 The module tracks the loop start, so these decompile as ordinary `do { } while` loops.
@@ -109,11 +110,13 @@ python3 gen.py table.json m10300-opc.c out/
   Ghidra 11.4.2 and the newest Ghidra release, then runs the emulator cases.
 - **Decompiling real code.** `validation/decompile_check.sh` imports the E-M5 III 1.7 main block with Ghidra's
   auto-analysis, runs `MN103FixCallFrames` and decompiles the 40 functions in `validation/decompile_funcs.txt` (spread
-  over the block, 120 to 500 bytes each). All 40 decompile. Across them the decompiler leaves 30 unresolved inputs
-  (`in_*`) and 63 `unaff_*` registers (40 of them `a3`), and one function hits a bad instruction (`halt_baddata`).
-  About 14 minutes on 4 cores with Ghidra 11.4.2. You need your own copy of the stock firmware to run it.
+  over the block, 120 to 500 bytes each, taken from functions whose boundaries were confirmed). All 40 decompile, with
+  no `unaff_*` registers and no bad instructions. The decompiler leaves 29 references to unresolved inputs (`in_*`) in
+  7 functions. All of them are real arguments that Ghidra's prototype doesn't list: a pointer passed in a1 without
+  one in a0, or a stack argument (see Doesn't work). About 14 minutes on 4 cores with Ghidra 11.4.2. You need your own
+  copy of the stock firmware to run it.
 
-## Scripts## Scripts
+## Scripts
 
 | script | what it does |
 |---|---|
@@ -133,7 +136,8 @@ python3 gen.py table.json m10300-opc.c out/
   `macu`, `macb`, `mach`, `dmach` and their variants), `dmulh`/`dmulhu`, `bsch`, `mcst9`/`mcst48`/`mcste`,
   `getchx`/`getclx`, the `udf` instructions other than `udf00`/`udf01`, and the system instructions.
 - Ghidra prototypes can't express the d/a register split, so functions that take both integers and pointers need
-  their signatures edited by hand.
+  their signatures edited by hand. Until then, a pointer argument in a1 (with nothing in a0) and stack arguments show
+  up as `in_a1` and `in_stack_*`. `MN103InferParams` doesn't fix these cases yet.
 - Functions with two entry points decompile correctly from the second one only.
 
 ## Unverified

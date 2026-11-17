@@ -3,6 +3,8 @@
 // that the call sets at its target. If a callee was disassembled before any of its callers, its entry
 // instruction was decoded without that context. This script sets the context at every call target and
 // re-disassembles entries whose context was missing or different. Run it after (re-)analysis; it is idempotent.
+// Functions with no direct call in the program (called through a table, or from code not disassembled yet) get the
+// frame from their own `ret`/`retf [regs],N`, which undo exactly what the call set up, when all of them agree.
 // @category MN103
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.*;
@@ -33,6 +35,24 @@ public class MN103FixCallFrames extends GhidraScript {
             if (prev != null && (prev[0] != regs || prev[1] != frame)) conflicts.merge(fl[0], 1, Integer::sum);
             want.put(fl[0], new int[] { regs, frame });
         }
+        int fromRet = 0;
+        FunctionIterator fit = currentProgram.getFunctionManager().getFunctions(true);
+        while (fit.hasNext()) {
+            Function f = fit.next();
+            Address t = f.getEntryPoint();
+            if (want.containsKey(t)) continue;
+            int[] seen = null;
+            boolean agree = true;
+            InstructionIterator ri = currentProgram.getListing().getInstructions(f.getBody(), true);
+            while (ri.hasNext()) {
+                byte[] b = ri.next().getBytes();
+                if (b.length != 3 || ((b[0] & 0xff) != 0xdf && (b[0] & 0xff) != 0xde)) continue;   // ret / retf [regs],imm8
+                int[] r = { b[1] & 0xff, b[2] & 0xff };
+                if (seen == null) seen = r;
+                else if (seen[0] != r[0] || seen[1] != r[1]) agree = false;
+            }
+            if (seen != null && agree) { want.put(t, seen); fromRet++; }
+        }
         int redone = 0, set = 0, skipped = 0;
         List<Address> redo = new ArrayList<>();
         for (Map.Entry<Address, int[]> e : want.entrySet()) {
@@ -58,7 +78,7 @@ public class MN103FixCallFrames extends GhidraScript {
             disassemble(t);
             redone++;
         }
-        println(String.format("MN103FixCallFrames: %d call targets, %d context set, %d entries re-disassembled, %d targets with conflicting frames, %d skipped (target inside another instruction)",
-                want.size(), set, redone, conflicts.size(), skipped));
+        println(String.format("MN103FixCallFrames: %d entries (%d from their own ret), %d context set, %d entries re-disassembled, %d targets with conflicting frames, %d skipped (target inside another instruction)",
+                want.size(), fromRet, set, redone, conflicts.size(), skipped));
     }
 }
