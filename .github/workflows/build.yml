@@ -46,6 +46,15 @@ jobs:
             -deleteProject 2>&1 | tail -30
           cat "$RUNNER_TEMP/cases.out"
           grep -q ' 0 fail$' "$RUNNER_TEMP/cases.out"
+      - name: Calling convention (ptrregs compiler spec)
+        run: |
+          mkdir -p "$RUNNER_TEMP/proj2"
+          "$GHIDRA/support/analyzeHeadless" "$RUNNER_TEMP/proj2" ci -import "$RUNNER_TEMP/blank.bin" \
+            -processor MN103:LE:32:AM33-2 -cspec ptrregs -loader BinaryLoader -loader-baseAddr 0x60021020 -noanalysis \
+            -scriptPath validation -postScript CallingConventionTest.java "$RUNNER_TEMP/cc.out" \
+            -deleteProject 2>&1 | tail -30
+          cat "$RUNNER_TEMP/cc.out"
+          grep -q ' 0 fail$' "$RUNNER_TEMP/cc.out"
       - name: Python and shell syntax
         run: |
           python3 -m py_compile $(find . -name '*.py')

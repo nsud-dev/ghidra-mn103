@@ -15,3 +15,57 @@ divu_overflow_keeps_operands	f271	divu d0,d1	mdr=5 d1=0 d0=2	d1=0 mdr=5 V=1
 divu_zero_divisor	f271	divu d0,d1	mdr=0 d1=7 d0=0	d1=7 mdr=0 V=1
 div_signed	f261	div d0,d1	mdr=ffffffff d1=fffffff9 d0=2	d1=fffffffd mdr=ffffffff N=1 V=0
 must_fail_wrong_carry	f8c403	lsr 3,d0	d0=c C=1	d0=1 C=1
+# Wider coverage (2026-11-19): base arithmetic, logic, extensions, loads/stores, bit ops in memory, movm, calls/rets,
+# a setlb loop, AM33 dual op (both halves read their sources before either writes) and byte swaps. Expected values
+# follow from the instruction definitions (two's complement arithmetic, little-endian memory), not from the module.
+add_signed_overflow	e4	add d1,d0	d0=7fffffff d1=1	d0=80000000 Z=0 N=1 C=0 V=1
+add_carry_out	e4	add d1,d0	d0=ffffffff d1=1	d0=0 Z=1 N=0 C=1 V=0
+sub_borrow	f104	sub d1,d0	d0=0 d1=1	d0=ffffffff Z=0 N=1 C=1 V=0
+sub_signed_overflow	f104	sub d1,d0	d0=80000000 d1=1	d0=7fffffff Z=0 N=0 C=0 V=1
+cmp_equal	a4	cmp d1,d0	d0=5 d1=5	d0=5 Z=1 N=0 C=0 V=0
+cmp_unsigned_less	a4	cmp d1,d0	d0=1 d1=2	d0=1 Z=0 N=1 C=1 V=0
+mul_signed_64	f244	mul d1,d0	d0=ffffffff d1=2	d0=fffffffe mdr=ffffffff
+mulu_64	f254	mulu d1,d0	d0=ffffffff d1=ffffffff	d0=1 mdr=fffffffe
+ext_negative	f2d0	ext d0	d0=80000000 mdr=0	d0=80000000 mdr=ffffffff
+ext_positive	f2d0	ext d0	d0=7fffffff mdr=1234	mdr=0
+extb	10	extb d0	d0=12f0	d0=fffffff0
+extbu	14	extbu d0	d0=ffffff80	d0=80
+exth	18	exth d0	d0=12348000	d0=ffff8000
+exthu	1c	exthu d0	d0=ffff8001	d0=8001
+inc_dn_sets_flags	40	inc d0	d0=7fffffff	d0=80000000 Z=0 N=1 C=0 V=1
+inc_an_keeps_flags	41	inc a0	a0=ffffffff Z=0 C=0	a0=0 Z=0 C=0
+inc4_an	50	inc4 a0	a0=fffffffe Z=0	a0=2 Z=0
+asl2	54	asl2 d0	d0=40000001	d0=4
+ror_through_carry	f284	ror d0	d0=1 C=0	d0=0 C=1 Z=1
+ror_carry_in	f284	ror d0	d0=2 C=1	d0=80000001 C=0 N=1
+rol_through_carry	f280	rol d0	d0=80000000 C=1	d0=1 C=1 N=0 Z=0
+asl_count_low_5_bits	f294	asl d1,d0	d0=1 d1=21	d0=2
+lsr_one_carry	f8c401	lsr 1,d0	d0=3	d0=1 C=1
+and_imm8	f8e0ff	and 255,d0	d0=12345678	d0=78 Z=0 N=0
+and_imm8_zero	f8e0ff	and 255,d0	d0=12345600	d0=0 Z=1
+or_imm16	fae40010	or 4096,d0	d0=1	d0=1001
+xor	f224	xor d1,d0	d0=ff00ff00 d1=ffffffff	d0=ff00ff N=0 Z=0
+not	f230	not d0	d0=ffffffff	d0=0 Z=1
+btst_clear_bit	f8ec80	btst 128,d0	d0=7f	d0=7f Z=1
+btst_set_bit	f8ec80	btst 128,d0	d0=80	Z=0
+clr_flags	00	clr d0	d0=5 N=1 C=1 V=1	d0=0 Z=1 N=0 C=0 V=0
+mov_imm16_sign_extends	2c0080	mov -32768,d0	d0=0	d0=ffff8000
+mov_imm32	fccc78563412	mov 305419896,d0	d0=0	d0=12345678
+mov_load_le	70	mov (a0),d0	a0=1000 @1000=78563412	d0=12345678
+movbu_load	f040	movbu (a0),d0	a0=1000 @1000=f0 d0=ffffffff	d0=f0
+movhu_load	f060	movhu (a0),d0	a0=1000 @1000=3480 d0=ffffffff	d0=8034
+mov_store_disp	f81004	mov d0,(4,a0)	a0=1000 d0=11223344	@1004=44332211
+movbu_store_one_byte	f050	movbu d0,(a0)	a0=1000 d0=12345678 @1000=00000000	@1000=78000000
+bset_mem	f080	bset d0,(a0)	a0=1000 d0=30 @1000=0f	@1000=3f Z=1
+bclr_mem	f090	bclr d0,(a0)	a0=1000 d0=30 @1000=3f	@1000=0f Z=0
+movm_push	cfc0	movm [d2,d3],(sp)	sp=2000 d2=11111111 d3=22222222	sp=1ff8 @1ff8=2222222211111111
+movm_pop	cec0	movm (sp),[d2,d3]	sp=1ff8 @1ff8=2222222211111111	sp=2000 d2=11111111 d3=22222222
+calls_an	f0f0	calls (a0)	a0=60021100 sp=2000	pc=60021100 mdr=60021022 sp=2000 @2000=22100260
+rets	f0fc	rets	sp=2000 @2000=00110260	pc=60021100 sp=2000
+mov_pc_is_insn_address	f02c	mov pc,a0	a0=0	a0=60021020
+setlb_lne_loop	db4029ffd9	setlb; inc d0; add -1,d1; lne	d0=0 d1=3	d0=3 d1=0 Z=1 pc=60021025	10
+dual_mov_mov_parallel	f763cddc	mov_mov d0,d1,d1,d0	d0=1 d1=2	d0=2 d1=1
+swap_bytes	f681	swap d0,d1	d0=12345678	d1=78563412
+swaph_bytes_in_halves	f691	swaph d0,d1	d0=12345678	d1=34127856
+swhw_halves	f9ebcd	swhw d0,d1	d0=12345678	d1=56781234
+must_fail_wrong_store	f81004	mov d0,(4,a0)	a0=1000 d0=11223344	@1004=11223344

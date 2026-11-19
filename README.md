@@ -14,7 +14,8 @@ What's here:
 - Ghidra scripts for loading symbols, fixing call frames, recovering switch tables and batch decompiling
 - The generator that builds the SLEIGH spec from the binutils opcode table, and the tests used to check it
 
-Tested with Ghidra 11.4.2 on Java 21; the CI build also runs on the newest Ghidra release. The language ID is
+Tested with Ghidra 11.4.2 on Java 21 and Ghidra 12.2 on Java 25; the CI build also runs on the newest Ghidra release.
+The language ID is
 `MN103:LE:32:AM33-2`.
 
 ## Installing
@@ -72,8 +73,13 @@ The module tracks the loop start, so these decompile as ordinary `do { } while` 
 
 **Calling convention.** I worked this out from the code, not from a Panasonic document. Integer arguments go in d0
 and d1, pointers in a0 and a1, and the rest on the stack. Results come back in d0, or a0 for pointers. d2, d3, a2, a3
-and r4 to r7 are callee-saved. Ghidra can't express "integers in d, pointers in a" in one prototype, so
-`memcpy(a0 dst, a1 src, d0 len)` shows up as `memcpy(len, dst, src)` until you fix its signature by hand.
+and r4 to r7 are callee-saved. With the default compiler spec Ghidra numbers parameters d0, d1, a0, a1, so
+`memcpy(a0 dst, a1 src, d0 len)` shows up as `memcpy(len, dst, src)` until you fix its signature by hand. The second
+compiler spec, `ptrregs` ("cc103, pointers in a0/a1" in the import dialog, `-cspec ptrregs` headless), marks a0 and
+a1 as pointer registers, so a signature you type lands in the right registers on its own: `memcpy(a0 dst, a1 src, d0
+len)`, `memset(a0 dst, d0 byte, d1 len)`, pointer results in a0. Parameters the decompiler finds by itself are then
+listed pointers first. A third pointer argument goes to d0, as the Panasonic compiler manual describes, although the
+camera code I checked never does that.
 
 **Undocumented ops.** `udf00`/`udfu00` and `udf01`/`udfu01` are modelled as a 32-bit multiply. That's a guess from how
 the firmware uses them, not from documentation. The DSP accumulator ops and a few system instructions are left as
@@ -104,17 +110,21 @@ python3 gen.py table.json m10300-opc.c out/
   (saturating ops, `swhw_add`, some overflow flags). The `asr`/`lsr` carry and `addc`/`subc` zero-flag cases were module
   errors and are fixed.
 - **Hand-computed cases.** `validation/emu_cases.txt` holds single-instruction cases with expected values worked out by
-  hand (shift carry, add/subtract with carry, divide, divide overflow and divide by zero), plus one case with a wrong
-  expectation that must fail. `MN103CaseTests.java` runs them in Ghidra's emulator.
+  hand, 62 of them: add, subtract and compare flags, multiply and divide (including overflow and divide by zero), shift
+  carry, rotates through carry, sign and zero extension, loads and stores in little-endian memory, `bset`/`bclr` in
+  memory, `movm` push and pop, `calls`/`rets`, a `setlb`/`lne` loop, an AM33 dual op whose halves overlap, and the
+  byte-swap instructions. Two more cases have a wrong expectation and must fail. `MN103CaseTests.java` runs them in
+  Ghidra's emulator. `CallingConventionTest.java` checks where typed parameters land with the `ptrregs` spec.
 - **Builds and runs.** On every push, CI (`.github/workflows/build.yml`) compiles the SLEIGH spec and every script on
-  Ghidra 11.4.2 and the newest Ghidra release, then runs the emulator cases.
+  Ghidra 11.4.2 and the newest Ghidra release, then runs the emulator cases and the calling-convention check.
 - **Decompiling real code.** `validation/decompile_check.sh` imports the E-M5 III 1.7 main block with Ghidra's
   auto-analysis, runs `MN103FixCallFrames` and decompiles the 40 functions in `validation/decompile_funcs.txt` (spread
   over the block, 120 to 500 bytes each, taken from functions whose boundaries were confirmed). All 40 decompile, with
   no `unaff_*` registers and no bad instructions at any stage. It counts the unresolved inputs (`in_*`) three times:
   29 right after auto-analysis, 15 once the callers that auto-analysis never reached are disassembled and the call
-  frames are set again, and 0 after `MN103InferParams`. About 14 minutes on 4 cores with Ghidra 11.4.2. You need your
-  own copy of the stock firmware to run it. The next section says what the counts mean.
+  frames are set again, and 0 after `MN103InferParams`. With the `ptrregs` spec (`CSPEC=ptrregs`) the second count is
+  already 0. Ghidra 12.2 gives the same final counts. About 14 minutes on 4 cores. You need your own copy of the stock
+  firmware to run it. The next section says what the counts mean.
 
 ## Reading the decompile check
 
@@ -167,9 +177,9 @@ parameters are right.
 - Left as named pseudo-ops, so they show up as calls such as `mac(...)`: the multiply-accumulate family (`mac`,
   `macu`, `macb`, `mach`, `dmach` and their variants), `dmulh`/`dmulhu`, `bsch`, `mcst9`/`mcst48`/`mcste`,
   `getchx`/`getclx`, the `udf` instructions other than `udf00`/`udf01`, and the system instructions.
-- Ghidra prototypes can't express the d/a register split. `MN103InferParams` writes signatures with the right
-  registers for the functions you give it; for anything else (library functions outside the block, or ones you
-  type yourself) edit the signature by hand.
+- With the default compiler spec, prototypes can't express the d/a register split. `MN103InferParams` writes
+  signatures with the right registers for the functions you give it, and the `ptrregs` spec places typed signatures
+  correctly.
 - Functions with two entry points decompile correctly from the second one only.
 
 ## Unverified

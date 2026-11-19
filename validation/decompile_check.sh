@@ -9,11 +9,12 @@
 # Analysis only: nothing here writes firmware. Takes about as long as import_block0.sh --analyze.
 #
 # usage: decompile_check.sh GHIDRA_DIR BLOCK0.bin [WORKDIR]
+# CSPEC=ptrregs selects the compiler spec with pointer arguments in a0/a1 (mn103_ptr.cspec); default: default.
 set -e
-G=$1; B=$2; W=${3:-$(mktemp -d)}
+G=$1; B=$2; W=${3:-$(mktemp -d)}; CSPEC=${CSPEC:-default}
 HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$W/proj"
-"$G/support/analyzeHeadless" "$W/proj" check -import "$B" -processor MN103:LE:32:AM33-2 -loader BinaryLoader \
+"$G/support/analyzeHeadless" "$W/proj" check -import "$B" -processor MN103:LE:32:AM33-2 -cspec "$CSPEC" -loader BinaryLoader \
   -loader-baseAddr 0x60021020 -scriptPath "$HERE/../MN103/ghidra_scripts;$HERE" \
   -postScript MN103FixCallFrames.java \
   -postScript MN103Decompile.java "$W/out.c" -create "@$HERE/decompile_funcs.txt" \
@@ -25,7 +26,7 @@ mkdir -p "$W/proj"
 count() {
   echo "  functions decompiled:            $(grep -c '^// =====' "$1")"
   echo "  without a call frame (warning):  $(grep -c '^/\* MN103: no disassembled' "$1" || true)"
-  echo "  unresolved inputs (in_*):        $(grep -o '\bin_[A-Za-z0-9_]*' "$1" | wc -l)"
+  echo "  unresolved inputs (in_*):        $(grep -oE '(^|[^:A-Za-z0-9_])in_[A-Za-z0-9_]*' "$1" | wc -l)"
   echo "  unaffected registers (unaff_*):  $(grep -o '\bunaff_[A-Za-z0-9_]*' "$1" | wc -l)"
   echo "  bad data (halt_baddata):         $(grep -c 'halt_baddata' "$1" || true)"
 }
