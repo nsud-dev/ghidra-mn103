@@ -1,0 +1,74 @@
+# Peripheral registers and shared memory of the E-M5 III family (E-M5 III, OM-5, E-M1 III).
+# Read off the camera firmware's own code. Addresses are the same on these bodies; the OM-1 power block is laid out
+# differently, so don't apply the PWR_ rows there. Used by MN103LabelRegisters.java.
+# kind,address,size,name,comment
+#   block = an uninitialized volatile memory block (size in bytes); reg = a labelled u32/u16/u8 (size 4/2/1)
+block,0x47000000,0x2000,local_page,per-CPU local page (stack top 0x470007fc and copied helper code)
+block,0x62fe0000,0x20000,arm_shared,memory shared with the ARM image coprocessor
+block,0x8fe00000,0x40,lock_bits,64 cross-core lock bits (set and cleared with bset/bclr)
+block,0x8ff00000,0x1000,core_shared,core-shared SRAM (ISC control blocks from +0xc00)
+block,0x98700000,0x100,debug_uart,debug serial port used by the system shell and putc
+block,0x98e00000,0x100,power_block,always-on power block (wake sources, alarms, watchdog, clock)
+block,0x99200400,0x10,doorbell_cpu0,inter-core interrupt register of CPU0
+block,0x99300400,0x10,doorbell_cpu1,inter-core interrupt register of CPU1
+block,0x99700040,0x8,access_monitor,access monitor registers
+block,0x99b00400,0x10,doorbell_cpu2,inter-core interrupt register of CPU2
+block,0x9b801000,0x1000,pads,pin pad setup (card slot channel 0 from 0x9b801750; siodbg 0x9b801990/0x9b8019b0; channel 3 from 0x9b801bd0)
+block,0x9b802000,0x40,pin_route,routing of the ARM serial ports and JTAG to the pads
+block,0x9c000000,0x8000,vsc,display controller (channel 0 TFT/EVF at +0, channel 1 HDMI at +0x4000)
+block,0x9c100000,0x1000,osd_draw,OSD draw engine
+reg,0x47000000,0,LOCAL_PAGE,
+reg,0x470007fc,4,LOCAL_STACK_TOP,initial stack pointer of the local page
+reg,0x47001024,0,local_memcpy,memcpy copied into the local page
+reg,0x47001130,0,local_memset,memset copied into the local page
+reg,0x62fe0000,0,ARM_SHARED,memory shared with the ARM image coprocessor (128 KB)
+reg,0x8fe00000,4,LOCK_BITS,64 cross-core lock bits
+reg,0x8ff00c00,4,ISC_CONTROL,ISC control blocks
+reg,0x98700000,4,UART_MODE,setup writes 3
+reg,0x98700004,4,UART_CTRL,setup writes 25
+reg,0x98700018,4,UART_DATA,transmit/receive data
+reg,0x9870001c,4,UART_STATUS,putc busy-waits on this
+reg,0x98700020,4,UART_FIFO,setup writes 8
+reg,0x98700040,4,UART_BAUD,setup writes 0xc083 (likely the baud divisor)
+reg,0x98e00000,4,PWR_CONTROL,
+reg,0x98e00004,4,PWR_SW_WAKE,software wake word
+reg,0x98e00008,4,PWR_BACKUP0,first of 14 backup words (+0x08 to +0x3c)
+reg,0x98e00040,4,PWR_TIMING,timing bytes
+reg,0x98e00044,4,PWR_OFF_REQUEST,power-off request (key 0x19721030)
+reg,0x98e00048,4,PWR_ON_CAUSE,power-on cause flags
+reg,0x98e0004c,4,PWR_ALARM_BITS,alarm bits
+reg,0x98e00050,4,PWR_WAKE_PENDING,wake pending
+reg,0x98e00054,4,PWR_WAKE_ENABLE,wake enable mask
+reg,0x98e00058,4,PWR_WAKE_IN0,wake input 0
+reg,0x98e0005c,4,PWR_WAKE_IN1,wake input 1
+reg,0x98e00060,4,PWR_WAKE_IN2,wake input 2
+reg,0x98e00064,4,PWR_WAKE_IN3,wake input 3
+reg,0x98e00068,4,PWR_WAKE_IN4,wake input 4
+reg,0x98e0006c,4,PWR_ALARM_A_CMP,alarm A compare
+reg,0x98e00070,4,PWR_ALARM_A_CNT,alarm A counter
+reg,0x98e00074,4,PWR_ALARM_A_CTRL,alarm A control
+reg,0x98e00078,4,PWR_ALARM_A_STAT,alarm A status
+reg,0x98e0007c,4,PWR_ALARM_B_CMP,alarm B compare
+reg,0x98e00080,4,PWR_ALARM_B_CNT,alarm B counter
+reg,0x98e00084,4,PWR_ALARM_B_CTRL,alarm B control
+reg,0x98e00088,4,PWR_ALARM_B_STAT,alarm B status
+reg,0x98e0008c,4,PWR_WATCHDOG,watchdog
+reg,0x98e00090,4,PWR_KICK_CPU0,watchdog kick from CPU0 (key 0x19191012)
+reg,0x98e00094,4,PWR_KICK_OTHERS,watchdog kick from the other CPUs (key 0x19450815)
+reg,0x98e00098,4,PWR_CLOCK_SEC,clock seconds
+reg,0x98e0009c,4,PWR_CLOCK_PHASE,clock phase
+reg,0x98e000a0,4,PWR_ENABLE,
+reg,0x98e000a4,4,PWR_COMMIT,commit (write 0x20041001 then poll for 0)
+reg,0x99200400,4,DOORBELL_CPU0,
+reg,0x99300400,4,DOORBELL_CPU1,
+reg,0x99700040,4,ACCESS_MON0,
+reg,0x99700044,4,ACCESS_MON1,
+reg,0x99b00400,4,DOORBELL_CPU2,
+reg,0x9b801990,4,PAD_SIODBG0,
+reg,0x9b8019b0,4,PAD_SIODBG1,
+reg,0x9b802020,4,ROUTE_ARM_UART0,ARM uart0 pins (siodbg or channel 3)
+reg,0x9b802024,4,ROUTE_ARM_UART1,ARM uart1 pins (card slot or channel 3)
+reg,0x9b80202c,4,ROUTE_ARM_JTAG,ARM JTAG on the card slot pins
+reg,0x9b802030,4,ROUTE_SIODBG,siodbg routing (1 = channel 3)
+reg,0x9c003200,4,VSC_PANEL_SERIAL,panel serial engine (to +0x23c)
+reg,0x9c100000,4,OSD_DRAW,OSD draw engine

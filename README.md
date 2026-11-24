@@ -57,6 +57,22 @@ firmware and imports it at `0x60021020`:
 It needs `olyfw.py` from [olympus-firmware-notes](https://github.com/nsud-dev/olympus-firmware-notes). Clone that repo
 next to this one, or point `OLYFW` at the script.
 
+The import also splits the image into the parts the camera loads separately, adds the uncached view of memory, and
+names the peripheral registers (see the scripts below). Those steps take a few seconds.
+
+### Other bodies
+
+The OM-5, OM-5 II, E-M1 III and OM-1 use the same base address. Pass the main block image instead of the firmware file,
+and a name for the program:
+
+```sh
+NAME=om5 ./import_block0.sh /path/to/ghidra /path/to/projects om5_block0.bin
+```
+
+A file ending in `.bin` is imported as it is. Some bodies store parts of the main block compressed (the OM-5 and the
+E-M1 III do). Expand those parts first, or the code there won't decode. For the OM-1 add `REGS=none`, because its
+power block is laid out differently.
+
 ## MN103 quirks the module handles
 
 **The caller sets up the callee's frame.** Code from Panasonic's compiler, which built the Olympus firmware, doesn't
@@ -165,6 +181,10 @@ parameters are right.
 | `MN103LoadSymbols` | creates functions and labels from a CSV symbol list |
 | `MN103FixCallFrames` | sets up callee frames at every call target and re-disassembles the entries |
 | `MN103AddRamBlock` | adds an uninitialised RAM block for globals (default 32 MB at `0x62000000`) |
+| `MN103SectionBlocks` | splits the main block into the boot part and sections 1 to 10, read from the firmware's own section table, and adds the uncached view at `0xa0000000` |
+| `MN103LabelRegisters` | creates and names peripheral registers from a list, by default `data/registers/e144-family.csv` (power block, debug serial port, lock bits, doorbells, pads, shared memory) |
+| `MN103VscNames` | names the display controller registers from the firmware's own name table, so no names ship with the module |
+| `MN103SetCompilerSpec` | switches the open program between the `default` and `ptrregs` compiler specs and keeps the listing |
 | `MN103Decompile` | writes decompiled C for a list of functions, with a comment on any function that has no call frame yet |
 | `MN103InferParams` | infers parameters from how registers are used, including a pointer in a1 that Ghidra's fixed order drops, so call sites show their arguments |
 | `MN103RecoverSwitches` | recovers switch tables in projects imported without auto-analysis |
