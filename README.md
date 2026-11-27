@@ -189,6 +189,7 @@ parameters are right.
 | `MN103InferParams` | infers parameters from how registers are used, including a pointer in a1 that Ghidra's fixed order drops, so call sites show their arguments |
 | `MN103RecoverSwitches` | recovers switch tables in projects imported without auto-analysis |
 | `MN103Annotate` | applies a C header and a names and comments file, then writes commented C |
+| `MN103LensInfo` | builds a `lens_info_t` structure from a field-map CSV (offset, type, count, name, comment) and applies it to the lens record pointer and its getter. The CSV is not published. The field offsets are on the lens communication page in the notes. |
 
 `export_headless.sh` runs a batch decompile. Its optional CSV inputs come from tools that aren't published here.
 
